@@ -5,6 +5,13 @@ let platform = null;
 async function getPlatform() {
   if (platform) return platform;
 
+  console.log('[SMS] Initializing RingCentral SDK...');
+  console.log('[SMS] Server:', process.env.RINGCENTRAL_SERVER_URL);
+  console.log('[SMS] Client ID:', process.env.RINGCENTRAL_CLIENT_ID ? 'SET' : 'MISSING');
+  console.log('[SMS] Client Secret:', process.env.RINGCENTRAL_CLIENT_SECRET ? 'SET' : 'MISSING');
+  console.log('[SMS] JWT Token:', process.env.RINGCENTRAL_JWT_TOKEN ? `SET (${process.env.RINGCENTRAL_JWT_TOKEN.length} chars)` : 'MISSING');
+  console.log('[SMS] From Number:', process.env.RINGCENTRAL_FROM_NUMBER);
+
   const sdk = new SDK({
     server: process.env.RINGCENTRAL_SERVER_URL,
     clientId: process.env.RINGCENTRAL_CLIENT_ID,
@@ -12,7 +19,14 @@ async function getPlatform() {
   });
 
   platform = sdk.platform();
-  await platform.login({ jwt: process.env.RINGCENTRAL_JWT_TOKEN });
+  try {
+    await platform.login({ jwt: process.env.RINGCENTRAL_JWT_TOKEN });
+    console.log('[SMS] RingCentral authenticated OK');
+  } catch (err) {
+    console.error('[SMS] RingCentral auth FAILED:', err.message);
+    platform = null;
+    throw err;
+  }
   return platform;
 }
 
@@ -27,22 +41,28 @@ async function sendSMS(to, text) {
     // Normalize phone number to E.164
     const normalized = normalizePhone(to);
     if (!normalized) {
-      console.warn(`SMS skipped — invalid phone: ${to}`);
+      console.warn(`[SMS] Skipped — invalid phone: "${to}"`);
       return null;
     }
 
+    const fromNumber = process.env.RINGCENTRAL_FROM_NUMBER;
+    console.log(`[SMS] Sending to ${normalized} from ${fromNumber}`);
+
     const p = await getPlatform();
     const response = await p.post('/restapi/v1.0/account/~/extension/~/sms', {
-      from: { phoneNumber: process.env.RINGCENTRAL_FROM_NUMBER },
+      from: { phoneNumber: fromNumber },
       to: [{ phoneNumber: normalized }],
       text,
     });
 
     const json = await response.json();
-    console.log(`SMS sent to ${normalized}: ${text.substring(0, 50)}...`);
+    console.log(`[SMS] Sent OK to ${normalized}: ${text.substring(0, 50)}...`);
     return json;
   } catch (err) {
-    console.error(`SMS failed to ${to}:`, err.message);
+    const detail = err.response ? await err.response.text().catch(() => '') : '';
+    console.error(`[SMS] FAILED to ${to}: ${err.message}`);
+    if (detail) console.error(`[SMS] Detail: ${detail.substring(0, 300)}`);
+    console.error(`[SMS] From number: ${process.env.RINGCENTRAL_FROM_NUMBER}`);
     return null;
   }
 }
