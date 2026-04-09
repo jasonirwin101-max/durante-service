@@ -37,16 +37,36 @@ app.get('/api/health', (req, res) => {
 });
 
 // Temporary debug endpoint — remove after fixing Railway
-app.get('/api/debug-env', (req, res) => {
+app.get('/api/debug-env', async (req, res) => {
   const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+  const parsed = key.replace(/\\n/g, '\n');
+  let sheetsTest = 'not tested';
+  try {
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: parsed,
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+      range: 'ServiceRequests!A1:A2',
+    });
+    sheetsTest = 'OK — rows: ' + (r.data.values ? r.data.values.length : 0);
+  } catch (e) {
+    sheetsTest = 'FAILED: ' + e.message;
+  }
   res.json({
     keyLength: key.length,
     keyStart: key.substring(0, 32),
     keyEnd: key.substring(key.length - 32),
+    parsedKeyStart: parsed.substring(0, 32),
     hasLiteralBackslashN: key.includes('\\n'),
     hasRealNewlines: key.includes('\n'),
-    sheetsEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'SET' : 'MISSING',
-    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID ? 'SET' : 'MISSING',
+    sheetsTest,
   });
 });
 
