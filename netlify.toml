@@ -1,0 +1,90 @@
+# ─── Durante Equipment Service App ─────────────────────────
+# Netlify deployment configuration
+#
+# Deployment approach:
+#   - Express backend runs as a Netlify Function
+#   - Four React client apps are built to separate directories
+#   - Redirect rules route traffic to the correct app
+
+[build]
+  # Build all client apps
+  command = """
+    cd client/submit && npm install && npx vite build --outDir ../../dist/submit && cd ../.. && \
+    cd client/tech && npm install && npx vite build --outDir ../../dist/tech && cd ../.. && \
+    cd client/office && npm install && npx vite build --outDir ../../dist/office && cd ../.. && \
+    cd client/track && npm install && npx vite build --outDir ../../dist/track && cd ../.. && \
+    cd server && npm install && mkdir -p ../netlify/functions && cp -r . ../netlify/functions/api
+  """
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+
+# ─── Redirects ─────────────────────────────────────────────
+
+# API routes → serverless function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Submit app
+[[redirects]]
+  from = "/submit/*"
+  to = "/submit/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/submit"
+  to = "/submit/index.html"
+  status = 200
+
+# Tech app
+[[redirects]]
+  from = "/tech/*"
+  to = "/tech/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/tech"
+  to = "/tech/index.html"
+  status = 200
+
+# Office app
+[[redirects]]
+  from = "/office/*"
+  to = "/office/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/office"
+  to = "/office/index.html"
+  status = 200
+
+# Track + Rate app (same build)
+[[redirects]]
+  from = "/track/*"
+  to = "/track/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/rate/*"
+  to = "/track/index.html"
+  status = 200
+
+# Root → submit form
+[[redirects]]
+  from = "/"
+  to = "/submit/index.html"
+  status = 200
+
+# ─── Headers ──────────────────────────────────────────────
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
