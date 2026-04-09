@@ -108,8 +108,11 @@ router.post('/', async (req, res) => {
       message: `Service request ${srId} created successfully`,
     });
   } catch (err) {
-    console.error('Submit error:', err);
-    res.status(500).json({ error: 'Failed to create service request' });
+    console.error('Submit error:', err.message, err.stack);
+    res.status(500).json({
+      error: 'Failed to create service request',
+      detail: process.env.NODE_ENV !== 'production' ? err.message : undefined,
+    });
   }
 });
 
