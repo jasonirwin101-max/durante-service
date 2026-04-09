@@ -19,7 +19,20 @@ const { startDigestCron } = require('./cron/digest');
 const app = express();
 
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: [
+    'https://durante-submit.netlify.app',
+    'https://durante-tech.netlify.app',
+    'https://durante-office.netlify.app',
+    'https://durante-track.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:3000',
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 
 // Rate limiting for public endpoints (60 req/min per IP)
