@@ -1,6 +1,7 @@
-node_modules/
 .env
-*.json.key
-*-service-account*.json
+node_modules/
 dist/
 .DS_Store
+*-service-account*.json
+*credentials*.json
+*serviceaccount*.json
