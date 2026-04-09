@@ -36,6 +36,20 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Temporary debug endpoint — remove after fixing Railway
+app.get('/api/debug-env', (req, res) => {
+  const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+  res.json({
+    keyLength: key.length,
+    keyStart: key.substring(0, 32),
+    keyEnd: key.substring(key.length - 32),
+    hasLiteralBackslashN: key.includes('\\n'),
+    hasRealNewlines: key.includes('\n'),
+    sheetsEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'SET' : 'MISSING',
+    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID ? 'SET' : 'MISSING',
+  });
+});
+
 // Routes
 app.use('/api/submit', submitRoutes);
 app.use('/api/requests', serviceRequestRoutes);
