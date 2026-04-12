@@ -85,7 +85,10 @@ router.patch('/:id/status', async (req, res) => {
       Status_Updated_By: name,
     };
 
-    if (eta) updates.ETA = eta;
+    if (eta) {
+      console.log(`[ETA DEBUG] Saving ETA: "${eta}" (type: ${typeof eta})`);
+      updates.ETA = eta;
+    }
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
 
