@@ -180,6 +180,53 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
           <Row label="Customer Need" value={sr.Customers_Need} />
         </Section>
 
+        {/* Photos */}
+        {[sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].some(p => p) && (
+          <Section title="Photos">
+            <div className="grid grid-cols-2 gap-2">
+              {[sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].map((photo, i) => {
+                if (!photo) return null
+                // Build an image source — data URLs and http URLs render directly
+                // For older photo-attached: entries, use the serve endpoint
+                let imgSrc = null
+                let linkHref = null
+                if (photo.startsWith('data:') || photo.startsWith('http')) {
+                  imgSrc = photo.startsWith('data:')
+                    ? `${import.meta.env.VITE_API_URL || ''}/api/upload/photo/${sr.SR_ID}/${i + 1}`
+                    : photo
+                  linkHref = photo.startsWith('data:')
+                    ? `${import.meta.env.VITE_API_URL || ''}/api/upload/photo/${sr.SR_ID}/${i + 1}`
+                    : photo
+                }
+                return (
+                  <a
+                    key={i}
+                    href={linkHref || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg border border-gray-200 overflow-hidden hover:border-[#E31837] transition-colors"
+                  >
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={`Photo ${i + 1}`}
+                        className="w-full h-28 object-cover"
+                        onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                      />
+                    ) : null}
+                    <div
+                      className="h-28 bg-gray-50 items-center justify-center text-xs text-gray-500 px-2 text-center"
+                      style={{ display: imgSrc ? 'none' : 'flex' }}
+                    >
+                      {photo.replace('photo-attached:', '').split('|')[0] || `Photo ${i + 1}`}
+                    </div>
+                  </a>
+                )
+              })}
+            </div>
+          </Section>
+        )}
+
         {/* Assign Tech */}
         <Section title="Assign Tech">
           <div className="flex gap-2">

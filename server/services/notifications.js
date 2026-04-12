@@ -177,12 +177,15 @@ async function fireNotifications(sr, status) {
 
   // ─── Send to Customer (unless ACKNOWLEDGED) ────────────
   if (!isAcknowledged) {
+    console.log(`[Notify] Customer SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
     if (smsText && sr.Contact_Phone) {
       const smsResult = await sendSMS(sr.Contact_Phone, smsText);
       if (smsResult) {
         result.smsSent = true;
         result.customerNotified = true;
       }
+    } else {
+      console.log(`[Notify] Customer SMS skipped — phone: "${sr.Contact_Phone}", text: ${smsText ? 'yes' : 'no'}`);
     }
 
     if (renderedHtml && sr.Contact_Email) {
@@ -197,6 +200,7 @@ async function fireNotifications(sr, status) {
   // ─── Send to Submitter (always) ────────────────────────
   const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
 
+  console.log(`[Notify] Submitter SMS — phone: "${sr.Submitter_Phone}", hasTemplate: ${!!smsText}`);
   if (smsText && sr.Submitter_Phone) {
     const smsResult = await sendSMS(sr.Submitter_Phone, smsText);
     if (smsResult) {
