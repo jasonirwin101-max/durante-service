@@ -20,7 +20,8 @@ const STATUS_BADGE = {
   'Cancelled':           { color: 'bg-gray-400',    text: 'Cancelled' },
 }
 
-const OFFICE_PHONE = '+9543617368'
+const OFFICE_PHONE_TEL = '+19543617368'
+const OFFICE_PHONE_DISPLAY = '(954) 361-7368'
 
 export default function TrackPage() {
   const { requestId } = useParams()
@@ -138,7 +139,7 @@ export default function TrackPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
           <p className="text-sm text-gray-500 mb-2">Questions about your service?</p>
           <a
-            href={`tel:${OFFICE_PHONE}`}
+            href={`tel:${OFFICE_PHONE_TEL}`}
             className="inline-flex items-center gap-2 min-h-[48px] px-6 bg-[#E31837] text-white font-bold rounded-lg hover:bg-[#c21530] active:bg-[#a8112a] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +147,7 @@ export default function TrackPage() {
             </svg>
             Call Us
           </a>
-          <p className="text-xs text-gray-400 mt-2">{OFFICE_PHONE}</p>
+          <p className="text-xs text-gray-400 mt-2">{OFFICE_PHONE_DISPLAY}</p>
         </div>
 
         {/* Footer */}

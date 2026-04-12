@@ -85,7 +85,8 @@ function renderTemplate(html, sr) {
     '{{TECH_NOTES}}': sr.Tech_Notes || '',
     '{{TRACKING_URL}}': sr.Tracking_URL || '',
     '{{RATING_URL}}': sr._ratingUrl || sr.Tracking_URL || '',
-    '{{OFFICE_PHONE}}': process.env.DURANTE_OFFICE_PHONE || '',
+    '{{OFFICE_PHONE}}': formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE),
+    '{{OFFICE_PHONE_TEL}}': formatPhoneTel(process.env.DURANTE_OFFICE_PHONE),
     '{{PHOTOS}}': buildPhotoHtml(sr),
   };
 
@@ -105,6 +106,22 @@ function buildPhotoHtml(sr) {
     (url, i) => `<a href="${url}" style="color:#E31837;text-decoration:underline;">Photo ${i + 1}</a>`
   ).join(' &nbsp; ');
   return `<tr><td style="padding:8px 12px;font-weight:bold;">Photos</td><td style="padding:8px 12px;">${links}</td></tr>`;
+}
+
+function formatPhoneDisplay(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`;
+  return phone;
+}
+
+function formatPhoneTel(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return phone;
 }
 
 function getTechFirstName(fullName) {
