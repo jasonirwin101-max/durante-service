@@ -4,8 +4,7 @@ const { google } = require('googleapis');
 const { Readable } = require('stream');
 
 const router = express.Router();
-// Limit 5MB per file to keep base64 within Sheets cell limits
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 let driveClient = null;
 
