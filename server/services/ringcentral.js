@@ -1,9 +1,11 @@
 const { SDK } = require('@ringcentral/sdk');
 
 let platform = null;
+let platformExpiry = 0;
 
 async function getPlatform() {
-  if (platform) return platform;
+  // Re-auth if platform is null or token is older than 30 minutes
+  if (platform && Date.now() < platformExpiry) return platform;
 
   console.log('[SMS] Initializing RingCentral SDK...');
   console.log('[SMS] Server:', process.env.RINGCENTRAL_SERVER_URL);
@@ -18,13 +20,16 @@ async function getPlatform() {
     clientSecret: process.env.RINGCENTRAL_CLIENT_SECRET,
   });
 
-  platform = sdk.platform();
+  const p = sdk.platform();
   try {
-    await platform.login({ jwt: process.env.RINGCENTRAL_JWT_TOKEN });
+    await p.login({ jwt: process.env.RINGCENTRAL_JWT_TOKEN });
+    platform = p;
+    platformExpiry = Date.now() + 30 * 60 * 1000; // refresh every 30 min
     console.log('[SMS] RingCentral authenticated OK');
   } catch (err) {
     console.error('[SMS] RingCentral auth FAILED:', err.message);
     platform = null;
+    platformExpiry = 0;
     throw err;
   }
   return platform;

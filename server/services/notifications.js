@@ -86,6 +86,7 @@ function renderTemplate(html, sr) {
     '{{TRACKING_URL}}': sr.Tracking_URL || '',
     '{{RATING_URL}}': sr._ratingUrl || sr.Tracking_URL || '',
     '{{OFFICE_PHONE}}': process.env.DURANTE_OFFICE_PHONE || '',
+    '{{PHOTOS}}': buildPhotoHtml(sr),
   };
 
   let result = html;
@@ -93,6 +94,17 @@ function renderTemplate(html, sr) {
     result = result.split(key).join(value);
   }
   return result;
+}
+
+function buildPhotoHtml(sr) {
+  const photos = [sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].filter(
+    p => p && p.startsWith('http')
+  );
+  if (photos.length === 0) return '';
+  const links = photos.map(
+    (url, i) => `<a href="${url}" style="color:#E31837;text-decoration:underline;">Photo ${i + 1}</a>`
+  ).join(' &nbsp; ');
+  return `<tr><td style="padding:8px 12px;font-weight:bold;">Photos</td><td style="padding:8px 12px;">${links}</td></tr>`;
 }
 
 function getTechFirstName(fullName) {
