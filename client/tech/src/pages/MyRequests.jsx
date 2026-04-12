@@ -2,32 +2,25 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api'
+import { STATUS_ES, L } from '../components/Bi'
 
 const STATUS_COLORS = {
-  'Received': 'bg-gray-500',
-  'Acknowledged': 'bg-blue-500',
-  'Scheduled': 'bg-orange-500',
-  'Dispatched': 'bg-orange-500',
-  'On Site': 'bg-green-600',
-  'Diagnosing': 'bg-blue-600',
-  'In Progress': 'bg-green-600',
-  'Parts Ordered': 'bg-orange-500',
-  'Parts Arrived': 'bg-green-500',
-  'Complete': 'bg-green-700',
-  'Follow-Up Required': 'bg-orange-600',
-  'Cannot Repair': 'bg-red-600',
-  'Cancelled': 'bg-gray-400',
+  'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500', 'Scheduled': 'bg-orange-500',
+  'Dispatched': 'bg-orange-500', 'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
+  'In Progress': 'bg-green-600', 'Parts Ordered': 'bg-orange-500', 'Parts Arrived': 'bg-green-500',
+  'Complete': 'bg-green-700', 'Follow-Up Required': 'bg-orange-600',
+  'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
 
 function getAge(isoDate) {
   if (!isoDate) return ''
   const diff = Date.now() - new Date(isoDate).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 60) return `${mins}m`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24) return `${hrs}h`
   const days = Math.floor(hrs / 24)
-  return `${days}d ago`
+  return `${days}d`
 }
 
 export default function MyRequests() {
@@ -44,13 +37,10 @@ export default function MyRequests() {
     setError('')
     try {
       const res = await api.get('/requests')
-      // Sort newest first by Submitted_On
-      const sorted = res.data.sort((a, b) =>
-        new Date(b.Submitted_On) - new Date(a.Submitted_On)
-      )
+      const sorted = res.data.sort((a, b) => new Date(b.Submitted_On) - new Date(a.Submitted_On))
       setRequests(sorted)
-    } catch (err) {
-      setError('Failed to load requests')
+    } catch {
+      setError('Failed to load requests / Error al cargar solicitudes')
     } finally {
       setLoading(false)
     }
@@ -62,11 +52,12 @@ export default function MyRequests() {
 
   return (
     <div className="px-4 pt-4">
-      {/* Summary Bar */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">My Requests</h2>
-          <p className="text-sm text-gray-500">{openCount} open · {requests.length} total</p>
+          <h2 className="text-lg font-bold text-gray-900">
+            {L.myRequests[0]} <span className="text-sm font-normal text-gray-500">/ {L.myRequests[1]}</span>
+          </h2>
+          <p className="text-sm text-gray-500">{openCount} {L.open[0]} · {requests.length} {L.total[0]}</p>
         </div>
         <button
           onClick={loadRequests}
@@ -80,17 +71,15 @@ export default function MyRequests() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
-          {error}
-        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-center text-gray-500 py-12">Loading requests...</div>
+        <div className="text-center text-gray-500 py-12">{L.loading[0]} / {L.loading[1]}</div>
       ) : requests.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No requests assigned</p>
-          <p className="text-gray-400 text-sm mt-1">Pull to refresh or tap the refresh button</p>
+          <p className="text-gray-500 text-lg">{L.noRequests[0]}</p>
+          <p className="text-gray-400 text-sm mt-1">{L.noRequests[1]}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -109,7 +98,7 @@ export default function MyRequests() {
               </div>
               <div className="flex items-center justify-between mt-3">
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium text-white ${STATUS_COLORS[sr.Current_Status] || 'bg-gray-500'}`}>
-                  {sr.Current_Status}
+                  {sr.Current_Status} <span className="opacity-75">/ {STATUS_ES[sr.Current_Status] || ''}</span>
                 </span>
                 <span className="text-xs text-gray-400 font-mono">{sr.SR_ID}</span>
               </div>

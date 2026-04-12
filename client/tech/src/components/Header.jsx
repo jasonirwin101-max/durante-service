@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { L } from './Bi'
 
 export default function Header() {
   const { user, logout } = useAuth()
@@ -24,7 +25,7 @@ export default function Header() {
           )}
           <div>
             <h1 className="text-lg font-bold leading-tight">Durante Equipment</h1>
-            <p className="text-xs text-white/80">Tech Portal</p>
+            <p className="text-xs text-white/80">{L.techPortal[0]} <span className="opacity-70">/ {L.techPortal[1]}</span></p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -33,7 +34,7 @@ export default function Header() {
             onClick={logout}
             className="min-h-[48px] px-3 rounded-lg text-sm font-medium hover:bg-white/20 active:bg-white/30 transition-colors"
           >
-            Logout
+            {L.logout[0]} <span className="text-xs opacity-70">/ {L.logout[1]}</span>
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { isValidStatus, canRoleSetStatus, STATUSES } = require('../utils/statusFlow');
 const sheets = require('../services/sheets');
 const { fireNotifications } = require('../services/notifications');
+const { processNotes } = require('../services/translate');
 
 const router = express.Router();
 
@@ -87,7 +88,14 @@ router.patch('/:id/status', async (req, res) => {
     if (eta) updates.ETA = eta;
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
-    if (notes) updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n[${now}] ${notes}` : `[${now}] ${notes}`;
+
+    // Process notes — translate Spanish to English if detected
+    let processedNotes = notes;
+    if (notes) {
+      const translated = await processNotes(notes);
+      processedNotes = translated.text;
+      updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n[${now}] ${processedNotes}` : `[${now}] ${processedNotes}`;
+    }
 
     if (status === STATUSES.COMPLETE) {
       updates.Service_Completed = 'TRUE';
