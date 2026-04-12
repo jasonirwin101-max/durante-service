@@ -81,8 +81,8 @@ function renderTemplate(html, sr) {
     '{{TECH_NAME}}': getTechFirstName(sr.Assigned_Tech),
     '{{ETA}}': sr.ETA || 'TBD',
     '{{SCHEDULED_DATE}}': sr.Scheduled_Date || 'TBD',
-    '{{SUMMARY}}': sr.Tech_Notes || sr.Problem_Description || '',
-    '{{TECH_NOTES}}': sr.Tech_Notes || '',
+    '{{SUMMARY}}': stripTimestamps(sr.Tech_Notes || sr.Problem_Description || ''),
+    '{{TECH_NOTES}}': stripTimestamps(sr.Tech_Notes || ''),
     '{{TRACKING_URL}}': sr.Tracking_URL || '',
     '{{RATING_URL}}': sr._ratingUrl || sr.Tracking_URL || '',
     '{{OFFICE_PHONE}}': formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE),
@@ -106,6 +106,12 @@ function buildPhotoHtml(sr) {
     (url, i) => `<a href="${url}" style="color:#E31837;text-decoration:underline;">Photo ${i + 1}</a>`
   ).join(' &nbsp; ');
   return `<tr><td style="padding:8px 12px;font-weight:bold;">Photos</td><td style="padding:8px 12px;">${links}</td></tr>`;
+}
+
+function stripTimestamps(text) {
+  if (!text) return '';
+  // Remove [2026-04-12T15:44:45.899Z] prefixes from each line
+  return text.replace(/\[\d{4}-\d{2}-\d{2}T[\d:.]+Z?\]\s*/g, '').trim();
 }
 
 function formatPhoneDisplay(phone) {

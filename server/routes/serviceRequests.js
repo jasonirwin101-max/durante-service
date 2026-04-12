@@ -89,12 +89,11 @@ router.patch('/:id/status', async (req, res) => {
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
 
-    // Process notes — translate Spanish to English if detected
-    let processedNotes = notes;
+    // Process notes — translate Spanish to English if detected, no timestamp prefix
     if (notes) {
       const translated = await processNotes(notes);
-      processedNotes = translated.text;
-      updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n[${now}] ${processedNotes}` : `[${now}] ${processedNotes}`;
+      const cleanNote = translated.text;
+      updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n${cleanNote}` : cleanNote;
     }
 
     if (status === STATUSES.COMPLETE) {
