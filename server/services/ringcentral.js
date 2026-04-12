@@ -62,6 +62,7 @@ async function sendSMS(to, text) {
 
     const json = await response.json();
     console.log(`[SMS] Sent OK to ${normalized}: ${text.substring(0, 50)}...`);
+    console.log(`[SMS] Response: id=${json.id} status=${json.messageStatus} direction=${json.direction} from=${json.from?.phoneNumber} to=${json.to?.[0]?.phoneNumber} deliveryState=${json.to?.[0]?.messageStatus || 'N/A'}`);
     return json;
   } catch (err) {
     const detail = err.response ? await err.response.text().catch(() => '') : '';
