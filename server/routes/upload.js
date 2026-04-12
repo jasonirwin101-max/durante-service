@@ -29,11 +29,13 @@ router.post('/', upload.array('photos', 4), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    let baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-    // Ensure https:// prefix
-    if (baseUrl && !baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
+    // Use RAILWAY_PUBLIC_DOMAIN or UPLOAD_BASE_URL for file URLs — NOT BASE_URL
+    // (BASE_URL points to the Netlify track site for tracking links)
+    const host = process.env.UPLOAD_BASE_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+      || `http://localhost:${process.env.PORT || 3001}`;
     const urls = req.files.map(file => {
-      const publicUrl = `${baseUrl}/uploads/${file.filename}`;
+      const publicUrl = `${host}/uploads/${file.filename}`;
       console.log(`[Upload] Saved: ${file.originalname} → ${publicUrl} (${file.size} bytes)`);
       return publicUrl;
     });

@@ -186,10 +186,15 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
             <div className="grid grid-cols-2 gap-2">
               {[sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].map((photo, i) => {
                 if (!photo) return null
-                // Ensure absolute URL — add https:// if missing protocol
+                const API = import.meta.env.VITE_API_URL || ''
                 let url = photo
+                // Fix URLs pointing to Netlify instead of Railway
+                if (url.includes('.netlify.app/uploads/')) {
+                  url = `${API}/uploads/${url.split('/uploads/')[1]}`
+                }
+                // Add protocol if missing
                 if (url && !url.startsWith('http') && !url.startsWith('data:')) {
-                  url = url.startsWith('/') ? `${import.meta.env.VITE_API_URL || ''}${url}` : `https://${url}`
+                  url = url.startsWith('/') ? `${API}${url}` : `https://${url}`
                 }
                 return (
                   <a
