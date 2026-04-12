@@ -3,12 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const sheets = require('../services/sheets');
 const { sendEmail } = require('../services/outlook');
+const { deriveSubmitterEmail } = require('../utils/emailDeriver');
 
 const router = express.Router();
 
 const RATING_RECIPIENTS = [
-  'jirwin@duranteequip.com',
-  'servicerequest@duranteequip.com',
+  'service@duranteequip.com',
+  'azunic@duranteequip.com',
 ];
 
 async function findRatingToken(srId, token) {
@@ -62,13 +63,22 @@ function sendRatingEmail(sr, rating, comments) {
 
     const subject = `Customer Rating Received — ${sr.SR_ID} — ${rating}/5 Stars`;
 
-    for (const email of RATING_RECIPIENTS) {
+    // Build recipient list: fixed addresses + submitter
+    const recipients = [...RATING_RECIPIENTS];
+    const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
+    if (submitterEmail) {
+      recipients.push(submitterEmail);
+    } else {
+      console.warn('[Rating] Could not derive submitter email for:', sr.Submitter_Name);
+    }
+
+    for (const email of recipients) {
       sendEmail(email, subject, html).catch(err =>
         console.error(`[Rating] Email to ${email} failed:`, err.message)
       );
     }
 
-    console.log(`[Rating] Notification sent for ${sr.SR_ID}: ${rating}/5`);
+    console.log(`[Rating] Notification sent for ${sr.SR_ID}: ${rating}/5 to: ${recipients.join(', ')}`);
   } catch (err) {
     console.error('[Rating] Email build failed:', err.message);
   }
