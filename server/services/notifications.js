@@ -267,6 +267,14 @@ async function fireNotifications(sr, status) {
     }
   }
 
+  // ─── Send to service team on RECEIVED only ─────────────
+  if (status === 'Received' && renderedHtml) {
+    sendEmail('service@duranteequip.com', subject, renderedHtml).catch(err =>
+      console.error('[Notify] service@ email failed:', err.message)
+    );
+    console.log('[Notify] RECEIVED email sent to service@duranteequip.com');
+  }
+
   console.log(`Notifications fired for ${sr.SR_ID} → ${status}:`, result);
   return result;
 }
