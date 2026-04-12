@@ -15,6 +15,7 @@ const SR_COLS = {
   Service_Completed: 34,
   Rating_Submitted_At: 35,
   Rating_Comments: 36,
+  Tech_Notes_Original: 37,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);

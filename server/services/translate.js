@@ -69,7 +69,7 @@ async function processNotes(text) {
 
   const translated = await translateToEnglish(text);
   if (translated) {
-    return { text: `${translated} [translated from: ${text}]`, original: text };
+    return { text: translated, original: text };
   }
 
   // API failed — return original

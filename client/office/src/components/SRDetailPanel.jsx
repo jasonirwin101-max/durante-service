@@ -331,19 +331,15 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
 
         {/* Tech Notes */}
         {sr.Tech_Notes && (
-          <Section title="Tech Notes">
-            {sr.Tech_Notes.split('\n').map((line, i) => {
-              const translated = line.match(/^(.+?) \[translated from: (.+)\]$/)
-              if (translated) {
-                return (
-                  <div key={i} className="mb-2">
-                    <p className="text-sm text-gray-900">{translated[1]}</p>
-                    <p className="text-xs text-gray-500 italic mt-0.5">Original (ES): {translated[2]}</p>
-                  </div>
-                )
-              }
-              return <p key={i} className="text-sm text-gray-700 mb-1">{line}</p>
-            })}
+          <Section title={sr.Tech_Notes_Original ? 'Tech Notes (EN)' : 'Tech Notes'}>
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Tech_Notes}</pre>
+          </Section>
+        )}
+
+        {/* Original Spanish Notes */}
+        {sr.Tech_Notes_Original && (
+          <Section title="Tech Notes (ES)">
+            <pre className="text-sm text-gray-500 italic whitespace-pre-wrap font-sans">{sr.Tech_Notes_Original}</pre>
           </Section>
         )}
 
