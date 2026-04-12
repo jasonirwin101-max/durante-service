@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env'
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 
 const submitRoutes = require('./routes/submit');
@@ -20,8 +21,11 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve uploaded photos as static files
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
 // Rate limiting for public endpoints (60 req/min per IP)
 const publicLimiter = rateLimit({
