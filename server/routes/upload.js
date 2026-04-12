@@ -29,7 +29,9 @@ router.post('/', upload.array('photos', 4), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+    let baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+    // Ensure https:// prefix
+    if (baseUrl && !baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
     const urls = req.files.map(file => {
       const publicUrl = `${baseUrl}/uploads/${file.filename}`;
       console.log(`[Upload] Saved: ${file.originalname} → ${publicUrl} (${file.size} bytes)`);
