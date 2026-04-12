@@ -3,14 +3,17 @@ import api from '../api'
 
 const ALL_STATUSES = [
   'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
-  'Diagnosing', 'In Progress', 'Parts Ordered', 'Parts Arrived',
+  'Diagnosing', 'In Progress', 'Parts Needed', 'Parts Ordered', 'Parts Arrived',
+  'Left Site - Will Schedule Return', 'Unit to be Swapped', 'Unit Has Been Swapped',
   'Complete', 'Follow-Up Required', 'Cannot Repair', 'Cancelled',
 ]
 
 const STATUS_COLORS = {
   'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500', 'Scheduled': 'bg-orange-500',
   'Dispatched': 'bg-orange-500', 'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
-  'In Progress': 'bg-green-600', 'Parts Ordered': 'bg-orange-500', 'Parts Arrived': 'bg-green-500',
+  'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
+  'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
+  'Unit to be Swapped': 'bg-purple-600', 'Unit Has Been Swapped': 'bg-purple-700',
   'Complete': 'bg-green-700', 'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
@@ -279,9 +282,28 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
                     className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
                   />
                 )}
+                {newStatus === 'Unit to be Swapped' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Swap ETA / Date & Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={eta}
+                      onChange={e => {
+                        const d = new Date(e.target.value)
+                        const formatted = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: '2-digit', day: '2-digit', year: 'numeric' })
+                        setEta(formatted)
+                      }}
+                      className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                      required
+                    />
+                    {!eta && <p className="text-xs text-red-500 mt-1">Date and time required for unit swap</p>}
+                  </div>
+                )}
                 <button
                   onClick={handleStatusUpdate}
-                  disabled={statusUpdating}
+                  disabled={statusUpdating || (newStatus === 'Unit to be Swapped' && !eta)}
                   className="w-full h-8 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
                 >
                   {statusUpdating ? 'Updating...' : `Set to ${newStatus}`}

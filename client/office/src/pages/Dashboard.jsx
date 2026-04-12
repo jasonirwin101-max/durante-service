@@ -11,8 +11,12 @@ const STATUS_COLORS = {
   'On Site': 'bg-green-600',
   'Diagnosing': 'bg-blue-600',
   'In Progress': 'bg-green-600',
+  'Parts Needed': 'bg-orange-500',
   'Parts Ordered': 'bg-orange-500',
   'Parts Arrived': 'bg-green-500',
+  'Left Site - Will Schedule Return': 'bg-blue-500',
+  'Unit to be Swapped': 'bg-purple-600',
+  'Unit Has Been Swapped': 'bg-purple-700',
   'Complete': 'bg-green-700',
   'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600',
@@ -200,32 +204,41 @@ export default function Dashboard() {
                     {filtered.map(sr => {
                       const days = ageDays(sr.Submitted_On)
                       const isSelected = selectedSR?.SR_ID === sr.SR_ID
+                      const isReceived = sr.Current_Status === 'Received'
                       return (
                         <tr
                           key={sr.SR_ID}
                           onClick={() => setSelectedSR(sr)}
-                          className={`cursor-pointer transition-colors border-b border-gray-100 ${
-                            isSelected
-                              ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                              : ageRowClass(sr.Submitted_On)
-                          } hover:bg-blue-50/50`}
+                          className={`cursor-pointer border-b border-gray-100 ${
+                            isReceived
+                              ? 'row-received-flash'
+                              : isSelected
+                                ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                                : `${ageRowClass(sr.Submitted_On)} hover:bg-blue-50/50`
+                          }`}
                         >
                           <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{sr.SR_ID}</td>
                           <td className="px-3 py-2 font-medium max-w-[150px] truncate">{sr.Company_Name}</td>
                           <td className="px-3 py-2 max-w-[120px] truncate">{sr.Contact_Name}</td>
                           <td className="px-3 py-2 max-w-[160px] truncate">{sr.Equipment_Description}</td>
                           <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white ${STATUS_COLORS[sr.Current_Status] || 'bg-gray-500'}`}>
-                              {sr.Current_Status}
-                            </span>
+                            {isReceived ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-white text-[#E31837]">
+                                ACTION NEEDED
+                              </span>
+                            ) : (
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white ${STATUS_COLORS[sr.Current_Status] || 'bg-gray-500'}`}>
+                                {sr.Current_Status}
+                              </span>
+                            )}
                           </td>
-                          <td className="px-3 py-2 whitespace-nowrap">{sr.Assigned_Tech || <span className="text-gray-400 italic">Unassigned</span>}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{sr.Assigned_Tech || <span className={isReceived ? 'font-bold' : 'text-gray-400 italic'}>Unassigned</span>}</td>
                           <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`font-medium ${days >= 4 ? 'text-red-600' : days >= 2 ? 'text-yellow-600' : 'text-green-600'}`}>
+                            <span className={isReceived ? 'font-bold' : `font-medium ${days >= 4 ? 'text-red-600' : days >= 2 ? 'text-yellow-600' : 'text-green-600'}`}>
                               {days}d
                             </span>
                           </td>
-                          <td className="px-3 py-2 max-w-[140px] truncate text-gray-500">{sr.Site_Address}</td>
+                          <td className="px-3 py-2 max-w-[140px] truncate">{sr.Site_Address}</td>
                         </tr>
                       )
                     })}

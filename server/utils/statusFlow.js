@@ -10,6 +10,8 @@ const STATUSES = {
   PARTS_ORDERED: 'Parts Ordered',
   PARTS_ARRIVED: 'Parts Arrived',
   LEFT_SITE: 'Left Site - Will Schedule Return',
+  UNIT_TO_BE_SWAPPED: 'Unit to be Swapped',
+  UNIT_HAS_BEEN_SWAPPED: 'Unit Has Been Swapped',
   COMPLETE: 'Complete',
   FOLLOW_UP_REQUIRED: 'Follow-Up Required',
   CANNOT_REPAIR: 'Cannot Repair',
