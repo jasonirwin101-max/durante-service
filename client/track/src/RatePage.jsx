@@ -12,6 +12,7 @@ export default function RatePage() {
   const [alreadyRated, setAlreadyRated] = useState(false)
   const [rating, setRating] = useState(0)
   const [hovering, setHovering] = useState(0)
+  const [comments, setComments] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -36,7 +37,7 @@ export default function RatePage() {
     if (rating < 1) return
     setSubmitting(true)
     try {
-      await api.post(`/rate/${requestId}/${token}`, { rating })
+      await api.post(`/rate/${requestId}/${token}`, { rating, comments: comments.trim() || undefined })
       setSubmitted(true)
     } catch (err) {
       if (err.response?.status === 410) {
@@ -141,6 +142,18 @@ export default function RatePage() {
                 {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating]}
               </p>
             )}
+          </div>
+
+          <div>
+            <p className="text-sm text-gray-500 mb-2">Any additional comments? (optional)</p>
+            <textarea
+              value={comments}
+              onChange={e => setComments(e.target.value.substring(0, 500))}
+              placeholder="Tell us about your experience..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+            />
+            <p className="text-xs text-gray-400 text-right mt-1">{comments.length}/500</p>
           </div>
 
           <button
