@@ -290,11 +290,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
                     <input
                       type="datetime-local"
                       value={eta}
-                      onChange={e => {
-                        const d = new Date(e.target.value)
-                        const formatted = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: '2-digit', day: '2-digit', year: 'numeric' })
-                        setEta(formatted)
-                      }}
+                      onChange={e => setEta(e.target.value)}
                       className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
                       required
                     />

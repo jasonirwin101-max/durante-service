@@ -11,15 +11,15 @@ const SMS_TEMPLATES = {
   'Received': (sr) => `Durante Equipment received ${sr.SR_ID} for ${sr.Equipment_Description}. Track: ${sr.Tracking_URL}`,
   'Acknowledged': (sr) => `${sr.SR_ID} acknowledged. A tech will be scheduled shortly.`,
   'Scheduled': (sr) => `Service scheduled for ${sr.Scheduled_Date}. ${sr.SR_ID}. Track: ${sr.Tracking_URL}`,
-  'Dispatched': (sr) => `Tech ${getTechFirstName(sr.Assigned_Tech)} is on the way. ETA: ${sr.ETA}. ${sr.SR_ID}`,
+  'Dispatched': (sr) => `Tech ${getTechFirstName(sr.Assigned_Tech)} is on the way. ETA: ${formatETA(sr.ETA)}. ${sr.SR_ID}`,
   'On Site': (sr) => `Your Durante technician has arrived on site. ${sr.SR_ID}`,
   'Diagnosing': (sr) => `Our tech is diagnosing your equipment. ${sr.SR_ID}`,
   'In Progress': (sr) => `Work is underway on your equipment. ${sr.SR_ID}`,
   'Parts Needed': (sr) => `Your Durante technician has identified parts needed for your equipment. Our office will contact you to schedule a return visit. ${sr.SR_ID}`,
-  'Parts Ordered': (sr) => `Parts ordered. Est. arrival: ${sr.ETA}. ${sr.SR_ID}`,
+  'Parts Ordered': (sr) => `Parts ordered. Est. arrival: ${formatETA(sr.ETA)}. ${sr.SR_ID}`,
   'Parts Arrived': (sr) => `Parts arrived — rescheduling your service. ${sr.SR_ID}`,
   'Left Site - Will Schedule Return': (sr) => `Your Durante technician has completed the initial visit on ${sr.SR_ID}. Our office will contact you to schedule a return visit.`,
-  'Unit to be Swapped': (sr) => `Your Durante Equipment unit is scheduled to be swapped. ETA: ${sr.ETA || 'TBD'}. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}. ${sr.SR_ID}`,
+  'Unit to be Swapped': (sr) => `Your Durante Equipment unit is scheduled to be swapped. ETA: ${formatETA(sr.ETA)}. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}. ${sr.SR_ID}`,
   'Unit Has Been Swapped': (sr) => `Your Durante Equipment unit has been swapped. Please inspect your equipment and let us know if everything is working. ${sr.SR_ID}`,
   'Complete': (sr) => `Service complete on ${sr.Equipment_Description}. Issue: ${sr.Tech_Notes || 'Resolved'}. Rate us: ${sr._ratingUrl || sr.Tracking_URL}`,
   'Follow-Up Required': (sr) => `A follow-up visit is needed: ${sr.Tech_Notes || 'See details'}. We will be in touch. ${sr.SR_ID}`,
@@ -91,8 +91,8 @@ function renderTemplate(html, sr) {
     '{{CONTACT_NAME}}': sr.Contact_Name || '',
     '{{EQUIPMENT}}': sr.Equipment_Description || '',
     '{{TECH_NAME}}': getTechFirstName(sr.Assigned_Tech),
-    '{{ETA}}': sr.ETA || 'TBD',
-    '{{SCHEDULED_DATE}}': sr.Scheduled_Date || 'TBD',
+    '{{ETA}}': formatETA(sr.ETA),
+    '{{SCHEDULED_DATE}}': formatETA(sr.Scheduled_Date),
     '{{SUMMARY}}': stripTimestamps(sr.Tech_Notes || sr.Problem_Description || ''),
     '{{TECH_NOTES}}': stripTimestamps(sr.Tech_Notes || ''),
     '{{TRACKING_URL}}': sr.Tracking_URL || '',
@@ -118,6 +118,15 @@ function buildPhotoHtml(sr) {
     (url, i) => `<a href="${url}" style="color:#E31837;text-decoration:underline;">Photo ${i + 1}</a>`
   ).join(' &nbsp; ');
   return `<tr><td style="padding:8px 12px;font-weight:bold;">Photos</td><td style="padding:8px 12px;">${links}</td></tr>`;
+}
+
+function formatETA(eta) {
+  if (!eta) return 'To be confirmed';
+  const date = new Date(eta);
+  if (isNaN(date.getTime())) return eta; // already a readable string like "Between 2-4 PM"
+  const time = date.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
+  const dateStr = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/New_York' });
+  return `${time} ${dateStr}`;
 }
 
 function stripTimestamps(text) {
