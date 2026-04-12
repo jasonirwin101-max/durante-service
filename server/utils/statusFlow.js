@@ -6,8 +6,10 @@ const STATUSES = {
   ON_SITE: 'On Site',
   DIAGNOSING: 'Diagnosing',
   IN_PROGRESS: 'In Progress',
+  PARTS_NEEDED: 'Parts Needed',
   PARTS_ORDERED: 'Parts Ordered',
   PARTS_ARRIVED: 'Parts Arrived',
+  LEFT_SITE: 'Left Site - Will Schedule Return',
   COMPLETE: 'Complete',
   FOLLOW_UP_REQUIRED: 'Follow-Up Required',
   CANNOT_REPAIR: 'Cannot Repair',
@@ -19,7 +21,8 @@ const TECH_STATUSES = [
   'On Site',
   'Diagnosing',
   'In Progress',
-  'Parts Ordered',
+  'Parts Needed',
+  'Left Site - Will Schedule Return',
   'Complete',
 ];
 

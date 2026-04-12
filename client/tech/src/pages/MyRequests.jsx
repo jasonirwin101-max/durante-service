@@ -7,7 +7,8 @@ import { STATUS_ES, L } from '../components/Bi'
 const STATUS_COLORS = {
   'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500', 'Scheduled': 'bg-orange-500',
   'Dispatched': 'bg-orange-500', 'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
-  'In Progress': 'bg-green-600', 'Parts Ordered': 'bg-orange-500', 'Parts Arrived': 'bg-green-500',
+  'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
+  'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
   'Complete': 'bg-green-700', 'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }

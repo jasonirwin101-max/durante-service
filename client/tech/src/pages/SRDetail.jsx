@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { STATUS_ES, L } from '../components/Bi'
 
-const TECH_STATUSES = ['Dispatched', 'On Site', 'Diagnosing', 'In Progress', 'Parts Ordered', 'Complete']
+const TECH_STATUSES = ['Dispatched', 'On Site', 'Diagnosing', 'In Progress', 'Parts Needed', 'Left Site - Will Schedule Return', 'Complete']
 
 const STATUS_COLORS = {
   'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500', 'Scheduled': 'bg-orange-500',
   'Dispatched': 'bg-orange-500', 'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
-  'In Progress': 'bg-green-600', 'Parts Ordered': 'bg-orange-500', 'Parts Arrived': 'bg-green-500',
+  'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
+  'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
   'Complete': 'bg-green-700', 'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
@@ -18,7 +19,8 @@ const STATUS_BTN = {
   'On Site': { color: 'bg-green-600 active:bg-green-700' },
   'Diagnosing': { color: 'bg-blue-600 active:bg-blue-700' },
   'In Progress': { color: 'bg-green-600 active:bg-green-700' },
-  'Parts Ordered': { color: 'bg-orange-500 active:bg-orange-600' },
+  'Parts Needed': { color: 'bg-orange-500 active:bg-orange-600' },
+  'Left Site - Will Schedule Return': { color: 'bg-[#2196F3] active:bg-[#1976D2]' },
   'Complete': { color: 'bg-[#E31837] active:bg-[#c21530]' },
 }
 
