@@ -3,6 +3,20 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api' })
 
+const SUBMITTER_NAMES = [
+  'Jason Irwin',
+  'Allan Montoya',
+  'Ray Diaz',
+  'Robert Andrews',
+  'Saleh Kraiem',
+  'Tina Caccavale',
+  'James DeNitto',
+  'Justin Bighouse',
+  'Adam Zunic',
+  'Eddie Rivera',
+  'Nestor Balmaseda',
+]
+
 const REQUIRED_FIELDS = [
   { key: 'companyName', label: 'Company Name' },
   { key: 'contactName', label: 'Contact Name' },
@@ -25,8 +39,10 @@ const INITIAL = {
 export default function App() {
   const [form, setForm] = useState({ ...INITIAL })
   const [photos, setPhotos] = useState([])
+  const [previews, setPreviews] = useState([])
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [result, setResult] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -39,6 +55,17 @@ export default function App() {
   function handlePhotos(e) {
     const files = Array.from(e.target.files).slice(0, 4)
     setPhotos(files)
+    // Generate previews
+    const urls = files.map(f => URL.createObjectURL(f))
+    setPreviews(prev => { prev.forEach(u => URL.revokeObjectURL(u)); return urls })
+  }
+
+  function removePhoto(index) {
+    setPhotos(prev => prev.filter((_, i) => i !== index))
+    setPreviews(prev => {
+      URL.revokeObjectURL(prev[index])
+      return prev.filter((_, i) => i !== index)
+    })
   }
 
   function validate() {
@@ -74,18 +101,28 @@ export default function App() {
     setSubmitError('')
 
     try {
-      // 1. Upload photos to Google Drive (if any)
+      // 1. Upload photos (if any)
       let photoUrls = []
       if (photos.length > 0) {
-        const formData = new FormData()
-        photos.forEach(f => formData.append('photos', f))
-        const uploadRes = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        photoUrls = uploadRes.data.urls
+        setUploadProgress(`Uploading ${photos.length} photo${photos.length > 1 ? 's' : ''}...`)
+        try {
+          const formData = new FormData()
+          photos.forEach(f => formData.append('photos', f))
+          const uploadRes = await api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+          photoUrls = uploadRes.data.urls
+          setUploadProgress('')
+        } catch (uploadErr) {
+          console.error('Photo upload failed:', uploadErr)
+          setUploadProgress('')
+          // Continue without photos — don't block the SR submission
+          photoUrls = photos.map(f => `photo-pending:${f.name}`)
+        }
       }
 
       // 2. Submit the service request
+      setUploadProgress('Submitting request...')
       const res = await api.post('/submit', {
         ...form,
         photos: photoUrls,
@@ -93,9 +130,10 @@ export default function App() {
 
       setResult(res.data)
     } catch (err) {
-      setSubmitError(err.response?.data?.error || 'Failed to submit. Please try again.')
+      setSubmitError(err.response?.data?.error || err.response?.data?.detail || 'Failed to submit. Please try again.')
     } finally {
       setSubmitting(false)
+      setUploadProgress('')
     }
   }
 
@@ -207,16 +245,30 @@ export default function App() {
                 onChange={handlePhotos}
                 className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#E31837] file:text-white hover:file:bg-[#c21530] file:cursor-pointer file:transition-colors"
               />
-              {photos.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">{photos.length} photo{photos.length > 1 ? 's' : ''} selected</p>
+              {previews.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                  {previews.map((url, i) => (
+                    <div key={i} className="relative group">
+                      <img src={url} alt={`Photo ${i + 1}`} className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full text-xs font-bold flex items-center justify-center opacity-80 hover:opacity-100"
+                      >
+                        X
+                      </button>
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">{photos[i]?.name}</p>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </FormSection>
 
           {/* Submitter */}
           <FormSection title="Submitter (DE Employee)">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Your Name" required value={form.submitterName} onChange={v => update('submitterName', v)} error={errors.submitterName} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:items-end">
+              <SelectField label="Your Name" required value={form.submitterName} onChange={v => update('submitterName', v)} error={errors.submitterName} options={SUBMITTER_NAMES} placeholder="Select your name..." />
               <Field label="Your Phone" required type="tel" value={form.submitterPhone} onChange={v => update('submitterPhone', v)} error={errors.submitterPhone} hint="For SMS updates" />
             </div>
           </FormSection>
@@ -227,7 +279,7 @@ export default function App() {
             disabled={submitting}
             className="w-full min-h-[52px] bg-[#E31837] text-white text-lg font-bold rounded-xl hover:bg-[#c21530] active:bg-[#a8112a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Submitting...' : 'Submit Service Request'}
+            {submitting ? (uploadProgress || 'Submitting...') : 'Submit Service Request'}
           </button>
         </form>
       </div>
@@ -271,6 +323,30 @@ function Field({ label, required, type = 'text', value, onChange, error, hint, p
           error ? 'border-red-400 bg-red-50' : 'border-gray-300'
         }`}
       />
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  )
+}
+
+function SelectField({ label, required, value, onChange, error, options, placeholder }) {
+  return (
+    <div data-error={!!error}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required={required}
+        className={`w-full min-h-[44px] px-3 border rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none transition-colors ${
+          error ? 'border-red-400 bg-red-50' : 'border-gray-300'
+        }`}
+      >
+        <option value="" disabled>{placeholder || 'Select...'}</option>
+        {options.map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )
