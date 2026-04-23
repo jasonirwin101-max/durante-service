@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [newBannerCount, setNewBannerCount] = useState(0)
+  const [loadError, setLoadError] = useState(null)
   const [justArrivedIds, setJustArrivedIds] = useState(() => new Set())
   const [selectedSR, setSelectedSR] = useState(null)
 
@@ -64,6 +65,9 @@ export default function Dashboard() {
   }, [])
 
   async function loadData() {
+    const tickTime = new Date().toLocaleTimeString()
+    console.log('[DASHBOARD] Auto-refresh tick:', tickTime)
+    console.log('[DASHBOARD] Token present:', !!localStorage.getItem('durante_office_token'))
     setRefreshing(true)
     try {
       const [srRes, techRes] = await Promise.all([
@@ -71,6 +75,7 @@ export default function Dashboard() {
         api.get('/auth/techs'),
       ])
       const newList = srRes.data
+      console.log('[DASHBOARD] SRs returned:', Array.isArray(newList) ? newList.length : `not-array (${typeof newList})`)
 
       if (!isInitialRef.current) {
         const arrived = newList
@@ -89,8 +94,13 @@ export default function Dashboard() {
       setRequests(newList)
       setTechs(techRes.data)
       setLastUpdated(new Date())
-    } catch {
-      // silent
+      setLoadError(null)
+    } catch (err) {
+      const detail = err.response
+        ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}`
+        : err.message
+      console.error('[DASHBOARD] Fetch failed —', detail)
+      setLoadError(detail)
     } finally {
       setRefreshing(false)
       setLoading(false)
@@ -218,6 +228,12 @@ export default function Dashboard() {
       {newBannerCount > 0 && (
         <div className="mb-3 px-4 py-2 bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm rounded-lg">
           {newBannerCount} new service request{newBannerCount === 1 ? '' : 's'} received
+        </div>
+      )}
+
+      {loadError && (
+        <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          Unable to load service requests — {loadError}
         </div>
       )}
 

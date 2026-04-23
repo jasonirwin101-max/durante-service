@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     const { role, name } = req.user;
 
     let results;
-    if (role === 'Office') {
+    if (role === 'Office' || role === 'Manager') {
       results = all;
     } else {
       // Techs see only their assigned SRs
@@ -32,6 +32,8 @@ router.get('/', async (req, res) => {
       sr.Company_Name.toLowerCase().includes(company.toLowerCase())
     );
 
+    console.log(`[REQUESTS] role=${role} name=${name} total=${all.length} returned=${results.length}`);
+    res.set('Cache-Control', 'no-store');
     res.json(results);
   } catch (err) {
     console.error('Get requests error:', err);
@@ -154,7 +156,7 @@ router.patch('/:id/status', async (req, res) => {
 // PATCH /api/requests/:id — update other fields (office only)
 router.patch('/:id', async (req, res) => {
   try {
-    if (req.user.role !== 'Office') {
+    if (!['Office', 'Manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only office staff can update SR fields' });
     }
 
