@@ -4,12 +4,13 @@ const { sendSMS } = require('./ringcentral');
 const { sendEmail, sendEmailWithAttachment } = require('./outlook');
 const { deriveSubmitterEmail } = require('../utils/emailDeriver');
 const { generateAndSavePDF } = require('./pdf');
+const { getStatusHistoryBySrId } = require('./sheets');
 
-// ─── SMS Templates ──────────────────────────────────────────
-// Each template takes (sr, name) so the same template personalizes
-// for the customer (Contact_Name) and the submitter (first name).
+// ─── Customer SMS Templates ─────────────────────────────────
+// Professional, customer-facing. Takes (sr, name) so the greeting
+// personalizes to Contact_Name.
 
-const SMS_TEMPLATES = {
+const CUSTOMER_SMS_TEMPLATES = {
   'Received': (sr, name) =>
     `Hi ${name}, Durante Equipment has received your service request for ${sr.Equipment_Description} at ${sr.Site_Address}. Your request number is ${sr.SR_ID}. We will be in touch shortly to schedule a technician. Track your request: ${sr.Tracking_URL}`,
   'Acknowledged': (sr, name) =>
@@ -44,6 +45,57 @@ const SMS_TEMPLATES = {
     `Hi ${name}, unfortunately our technician was unable to complete the repair for SR ${sr.SR_ID}. Please contact our office to discuss next steps: ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'Cancelled': (sr, name) =>
     `Hi ${name}, your service request SR ${sr.SR_ID} has been cancelled. If you have any questions please contact us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+};
+
+// ─── Submitter SMS Templates ────────────────────────────────
+// Brief internal-update tone for the DE employee who submitted the SR.
+
+const SUBMITTER_SMS_TEMPLATES = {
+  'Received': (sr) =>
+    `${sr.SR_ID} New SR submitted for ${sr.Company_Name}. Equipment: ${sr.Equipment_Description}. Assigned to: ${sr.Assigned_Tech || 'Unassigned'}.`,
+  'Acknowledged': (sr) =>
+    `${sr.SR_ID} - ${sr.Company_Name} SR has been acknowledged by the office team.`,
+  'Scheduled': (sr) =>
+    `${sr.SR_ID} - ${sr.Company_Name} SR scheduled for ${formatETA(sr.Scheduled_Date)}.`,
+  'Dispatched': (sr) =>
+    `${sr.SR_ID} - Tech ${sr.Assigned_Tech || 'TBD'} dispatched to ${sr.Company_Name}. ETA: ${formatETA(sr.ETA)}.`,
+  'On Site': (sr) =>
+    `${sr.SR_ID} - Tech ${sr.Assigned_Tech || 'TBD'} has arrived on site at ${sr.Company_Name}.`,
+  'Diagnosing': (sr) =>
+    `${sr.SR_ID} - Tech is diagnosing the issue at ${sr.Company_Name}.`,
+  'In Progress': (sr) =>
+    `${sr.SR_ID} - Work is in progress at ${sr.Company_Name}.`,
+  'Parts Needed': (sr) =>
+    `${sr.SR_ID} - Tech has identified parts needed at ${sr.Company_Name}. Office to follow up on ordering.`,
+  'Parts Ordered': (sr) =>
+    `${sr.SR_ID} - Parts have been ordered for ${sr.Company_Name} SR.`,
+  'Parts Arrived': (sr) =>
+    `${sr.SR_ID} - Parts have arrived for ${sr.Company_Name}. Return visit being scheduled.`,
+  'Left Site - Will Schedule Return': (sr) =>
+    `${sr.SR_ID} - Tech has left ${sr.Company_Name} site. Return visit to be scheduled.`,
+  'Unit to be Swapped': (sr) =>
+    `${sr.SR_ID} - Unit swap scheduled for ${sr.Company_Name}. ETA: ${formatETA(sr.ETA)}.`,
+  'Unit Has Been Swapped': (sr) =>
+    `${sr.SR_ID} - Unit has been swapped at ${sr.Company_Name}.`,
+  'Complete': (sr) =>
+    `${sr.SR_ID} - Service COMPLETE at ${sr.Company_Name}. Tech: ${sr.Assigned_Tech || 'TBD'}. Summary: ${stripTimestamps(sr.Tech_Notes || 'Resolved')}.`,
+  'Follow-Up Required': (sr) =>
+    `${sr.SR_ID} - Follow-up required at ${sr.Company_Name}. Office to contact customer.`,
+  'Cannot Repair': (sr) =>
+    `${sr.SR_ID} - Unable to repair at ${sr.Company_Name}. Office to contact customer.`,
+  'Cancelled': (sr) =>
+    `${sr.SR_ID} - SR for ${sr.Company_Name} has been cancelled.`,
+};
+
+// ─── Status badge colors for email HTML ─────────────────────
+const STATUS_HEX = {
+  'Received': '#6b7280', 'Acknowledged': '#3b82f6', 'Scheduled': '#f97316',
+  'Dispatched': '#f97316', 'On Site': '#16a34a', 'Diagnosing': '#2563eb',
+  'In Progress': '#16a34a', 'Parts Needed': '#f97316', 'Parts Ordered': '#f97316',
+  'Parts Arrived': '#22c55e', 'Left Site - Will Schedule Return': '#3b82f6',
+  'Unit to be Swapped': '#9333ea', 'Unit Has Been Swapped': '#7e22ce',
+  'Complete': '#15803d', 'Follow-Up Required': '#ea580c',
+  'Cannot Repair': '#dc2626', 'Cancelled': '#9ca3af',
 };
 
 function getFirstName(fullName) {
@@ -108,7 +160,7 @@ function loadEmailTemplate(status) {
   }
 }
 
-function renderTemplate(html, sr) {
+function renderTemplate(html, sr, extras = {}) {
   const vars = {
     '{{SR_ID}}': sr.SR_ID || '',
     '{{COMPANY_NAME}}': sr.Company_Name || '',
@@ -124,6 +176,7 @@ function renderTemplate(html, sr) {
     '{{OFFICE_PHONE}}': formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE),
     '{{OFFICE_PHONE_TEL}}': formatPhoneTel(process.env.DURANTE_OFFICE_PHONE),
     '{{PHOTOS}}': buildPhotoHtml(sr),
+    ...extras,
   };
 
   let result = html;
@@ -131,6 +184,55 @@ function renderTemplate(html, sr) {
     result = result.split(key).join(value);
   }
   return result;
+}
+
+function buildTimelineHtml(history) {
+  if (!history || history.length === 0) {
+    return '<tr><td style="padding:10px 14px;color:#6b7280;font-size:13px;">No history yet.</td></tr>';
+  }
+  const last3 = history.slice(-3).reverse();
+  return last3.map(h => {
+    const color = STATUS_HEX[h.Status] || '#6b7280';
+    const ts = formatTimestampDisplay(h.Timestamp);
+    const notes = stripTimestamps(h.Notes || '');
+    return `<tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;vertical-align:top;width:180px;">
+        <span style="display:inline-block;padding:3px 10px;background-color:${color};color:#ffffff;border-radius:10px;font-size:11px;font-weight:600;">${escapeHtml(h.Status)}</span>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151;">
+        <div>${escapeHtml(h.Updated_By || '')} <span style="color:#9ca3af;">· ${ts}</span></div>
+        ${notes ? `<div style="margin-top:4px;color:#4b5563;">${escapeHtml(notes)}</div>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function formatTimestampDisplay(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      hour12: true, timeZone: 'America/New_York',
+    });
+  } catch { return iso; }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function loadInternalTemplate() {
+  const filePath = path.join(__dirname, '..', 'templates', 'emails', 'internal_update.html');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error('Failed to load internal_update.html:', err.message);
+    return null;
+  }
 }
 
 function buildPhotoHtml(sr) {
@@ -199,6 +301,88 @@ function getTechFirstName(fullName) {
  * @param {string} status - The new status
  * @returns {object} - { customerNotified, submitterNotified, smsSent, emailSent }
  */
+async function sendCustomerNotification(sr, status) {
+  const out = { notified: false, smsSent: false, emailSent: false };
+
+  // Acknowledged is submitter-only per spec — customer is not notified.
+  if (status === 'Acknowledged') return out;
+
+  // SMS — professional, customer-facing
+  const smsBuilder = CUSTOMER_SMS_TEMPLATES[status];
+  const smsText = smsBuilder ? smsBuilder(sr, sr.Contact_Name || 'there') : null;
+  console.log(`[Notify:Customer] SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
+  if (smsText && sr.Contact_Phone) {
+    if (await sendSMS(sr.Contact_Phone, smsText)) {
+      out.smsSent = true;
+      out.notified = true;
+    }
+  }
+
+  // Email — customer-facing template from EMAIL_TEMPLATE_MAP
+  const html = loadEmailTemplate(status);
+  if (html && sr.Contact_Email) {
+    const rendered = renderTemplate(html, sr);
+    const subjectFn = EMAIL_SUBJECTS[status];
+    const subject = subjectFn ? subjectFn(sr) : `Service Request ${sr.SR_ID} — Update`;
+    const sendFn = (status === 'Complete' && sr._pdfBuffer)
+      ? (to, sb, ht) => sendEmailWithAttachment(to, sb, ht, sr._pdfBuffer, sr._pdfName)
+      : sendEmail;
+    if (await sendFn(sr.Contact_Email, subject, rendered)) {
+      out.emailSent = true;
+      out.notified = true;
+    }
+  }
+
+  return out;
+}
+
+async function sendSubmitterNotification(sr, status) {
+  const out = { notified: false, smsSent: false, emailSent: false };
+
+  // SMS — brief internal update
+  const smsBuilder = SUBMITTER_SMS_TEMPLATES[status];
+  const smsText = smsBuilder ? smsBuilder(sr) : null;
+  console.log(`[Notify:Submitter] SMS — phone: "${sr.Submitter_Phone}", hasTemplate: ${!!smsText}`);
+  if (smsText && sr.Submitter_Phone) {
+    if (await sendSMS(sr.Submitter_Phone, smsText)) {
+      out.smsSent = true;
+      out.notified = true;
+    }
+  }
+
+  // Email — internal_update.html template, always, regardless of status
+  const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
+  const html = loadInternalTemplate();
+  if (html && submitterEmail) {
+    const history = await getStatusHistoryBySrId(sr.SR_ID).catch(() => []);
+    const color = STATUS_HEX[status] || '#6b7280';
+    const dashboardUrl = process.env.OFFICE_DASHBOARD_URL
+      ? `${process.env.OFFICE_DASHBOARD_URL}/sr/${sr.SR_ID}`
+      : '';
+    const extras = {
+      '{{STATUS}}': status,
+      '{{STATUS_COLOR}}': color,
+      '{{CONTACT_PHONE}}': formatPhoneDisplay(sr.Contact_Phone) || sr.Contact_Phone || '',
+      '{{SITE_ADDRESS}}': sr.Site_Address || '',
+      '{{ASSET_NUMBER}}': sr.Asset_Number || '',
+      '{{UNIT_NUMBER}}': sr.Unit_Number || '',
+      '{{ASSIGNED_TECH}}': sr.Assigned_Tech || 'Unassigned',
+      '{{INTERNAL_NOTES}}': sr.Internal_Notes || '',
+      '{{TIMELINE_HTML}}': buildTimelineHtml(history),
+      '{{DASHBOARD_URL}}': dashboardUrl,
+      '{{TECH_NOTES_FULL}}': stripTimestamps(sr.Tech_Notes || ''),
+    };
+    const rendered = renderTemplate(html, sr, extras);
+    const subject = `${sr.SR_ID} - ${sr.Company_Name} - Status: ${status}`;
+    if (await sendEmail(submitterEmail, subject, rendered)) {
+      out.emailSent = true;
+      out.notified = true;
+    }
+  }
+
+  return out;
+}
+
 async function fireNotifications(sr, status) {
   const result = {
     customerNotified: false,
@@ -209,99 +393,53 @@ async function fireNotifications(sr, status) {
     ratingToken: null,
   };
 
-  const isAcknowledged = status === 'Acknowledged';
-  const isComplete = status === 'Complete';
-
-  // Generate PDF and rating token for COMPLETE
-  let pdfBuffer = null;
-  let pdfName = null;
-  if (isComplete) {
-    try {
-      const { pdfUrl, pdfBuffer: buf } = await generateAndSavePDF(sr);
-      pdfBuffer = buf;
-      pdfName = `${sr.SR_ID}-completion-report.pdf`;
-      result.pdfUrl = pdfUrl;
-    } catch (err) {
-      console.error('PDF generation failed:', err.message);
-    }
-
-    // Generate one-time rating token
+  // Generate PDF + rating token on COMPLETE — stash on sr for downstream use
+  if (status === 'Complete') {
     const crypto = require('crypto');
     const token = crypto.randomBytes(24).toString('hex');
     result.ratingToken = token;
-
-    // Update the SR's rating URL in the template data
     sr._ratingUrl = `${process.env.BASE_URL}/rate/${sr.SR_ID}/${token}`;
-  }
-
-  // Build SMS text — personalized separately for customer and submitter
-  const smsTemplate = SMS_TEMPLATES[status];
-  const customerSmsText = smsTemplate ? smsTemplate(sr, sr.Contact_Name || 'there') : null;
-  const submitterSmsText = smsTemplate ? smsTemplate(sr, getFirstName(sr.Submitter_Name)) : null;
-
-  // Build email HTML
-  const emailHtml = loadEmailTemplate(status);
-  let renderedHtml = emailHtml ? renderTemplate(emailHtml, sr) : null;
-  const subjectFn = EMAIL_SUBJECTS[status];
-  const subject = subjectFn ? subjectFn(sr) : `Service Request ${sr.SR_ID} — Update`;
-
-  // For COMPLETE, use the email send function with or without PDF attachment
-  const emailSendFn = (isComplete && pdfBuffer)
-    ? (to, subj, html) => sendEmailWithAttachment(to, subj, html, pdfBuffer, pdfName)
-    : sendEmail;
-
-  // ─── Send to Customer (unless ACKNOWLEDGED) ────────────
-  if (!isAcknowledged) {
-    console.log(`[Notify] Customer SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!customerSmsText}`);
-    if (customerSmsText && sr.Contact_Phone) {
-      const smsResult = await sendSMS(sr.Contact_Phone, customerSmsText);
-      if (smsResult) {
-        result.smsSent = true;
-        result.customerNotified = true;
-      }
-    } else {
-      console.log(`[Notify] Customer SMS skipped — phone: "${sr.Contact_Phone}", text: ${customerSmsText ? 'yes' : 'no'}`);
-    }
-
-    if (renderedHtml && sr.Contact_Email) {
-      const emailResult = await emailSendFn(sr.Contact_Email, subject, renderedHtml);
-      if (emailResult) {
-        result.emailSent = true;
-        result.customerNotified = true;
-      }
+    try {
+      const { pdfUrl, pdfBuffer } = await generateAndSavePDF(sr);
+      result.pdfUrl = pdfUrl;
+      sr._pdfBuffer = pdfBuffer;
+      sr._pdfName = `${sr.SR_ID}-completion-report.pdf`;
+    } catch (err) {
+      console.error('PDF generation failed:', err.message);
     }
   }
 
-  // ─── Send to Submitter (always) ────────────────────────
-  const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
+  const custRes = await sendCustomerNotification(sr, status);
+  const submRes = await sendSubmitterNotification(sr, status);
 
-  console.log(`[Notify] Submitter SMS — phone: "${sr.Submitter_Phone}", hasTemplate: ${!!submitterSmsText}`);
-  if (submitterSmsText && sr.Submitter_Phone) {
-    const smsResult = await sendSMS(sr.Submitter_Phone, submitterSmsText);
-    if (smsResult) {
-      result.smsSent = true;
-      result.submitterNotified = true;
+  result.customerNotified = custRes.notified;
+  result.submitterNotified = submRes.notified;
+  result.smsSent = custRes.smsSent || submRes.smsSent;
+  result.emailSent = custRes.emailSent || submRes.emailSent;
+
+  // Service team email on RECEIVED only — uses customer-facing template
+  if (status === 'Received') {
+    const html = loadEmailTemplate('Received');
+    if (html) {
+      const rendered = renderTemplate(html, sr);
+      const subject = EMAIL_SUBJECTS['Received'](sr);
+      sendEmail('service@duranteequip.com', subject, rendered).catch(err =>
+        console.error('[Notify] service@ email failed:', err.message)
+      );
+      console.log('[Notify] RECEIVED email sent to service@duranteequip.com');
     }
-  }
-
-  if (renderedHtml && submitterEmail) {
-    const emailResult = await emailSendFn(submitterEmail, subject, renderedHtml);
-    if (emailResult) {
-      result.emailSent = true;
-      result.submitterNotified = true;
-    }
-  }
-
-  // ─── Send to service team on RECEIVED only ─────────────
-  if (status === 'Received' && renderedHtml) {
-    sendEmail('service@duranteequip.com', subject, renderedHtml).catch(err =>
-      console.error('[Notify] service@ email failed:', err.message)
-    );
-    console.log('[Notify] RECEIVED email sent to service@duranteequip.com');
   }
 
   console.log(`Notifications fired for ${sr.SR_ID} → ${status}:`, result);
   return result;
 }
 
-module.exports = { fireNotifications, renderTemplate, loadEmailTemplate, SMS_TEMPLATES };
+module.exports = {
+  fireNotifications,
+  sendCustomerNotification,
+  sendSubmitterNotification,
+  renderTemplate,
+  loadEmailTemplate,
+  CUSTOMER_SMS_TEMPLATES,
+  SUBMITTER_SMS_TEMPLATES,
+};
