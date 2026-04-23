@@ -5,27 +5,51 @@ const { sendEmail, sendEmailWithAttachment } = require('./outlook');
 const { deriveSubmitterEmail } = require('../utils/emailDeriver');
 const { generateAndSavePDF } = require('./pdf');
 
-// ─── SMS Templates (from CLAUDE.md spec) ────────────────────
+// ─── SMS Templates ──────────────────────────────────────────
+// Each template takes (sr, name) so the same template personalizes
+// for the customer (Contact_Name) and the submitter (first name).
 
 const SMS_TEMPLATES = {
-  'Received': (sr) => `Durante Equipment received ${sr.SR_ID} for ${sr.Equipment_Description}. Track: ${sr.Tracking_URL}`,
-  'Acknowledged': (sr) => `${sr.SR_ID} acknowledged. A tech will be scheduled shortly.`,
-  'Scheduled': (sr) => `Service scheduled for ${sr.Scheduled_Date}. ${sr.SR_ID}. Track: ${sr.Tracking_URL}`,
-  'Dispatched': (sr) => `Tech ${getTechFirstName(sr.Assigned_Tech)} is on the way. ETA: ${formatETA(sr.ETA)}. ${sr.SR_ID}`,
-  'On Site': (sr) => `Your Durante technician has arrived on site. ${sr.SR_ID}`,
-  'Diagnosing': (sr) => `Our tech is diagnosing your equipment. ${sr.SR_ID}`,
-  'In Progress': (sr) => `Work is underway on your equipment. ${sr.SR_ID}`,
-  'Parts Needed': (sr) => `Your Durante technician has identified parts needed for your equipment. Our office will contact you to schedule a return visit. ${sr.SR_ID}`,
-  'Parts Ordered': (sr) => `Parts ordered. Est. arrival: ${formatETA(sr.ETA)}. ${sr.SR_ID}`,
-  'Parts Arrived': (sr) => `Parts arrived — rescheduling your service. ${sr.SR_ID}`,
-  'Left Site - Will Schedule Return': (sr) => `Your Durante technician has completed the initial visit on ${sr.SR_ID}. Our office will contact you to schedule a return visit.`,
-  'Unit to be Swapped': (sr) => `Your Durante Equipment unit is scheduled to be swapped. ETA: ${formatETA(sr.ETA)}. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}. ${sr.SR_ID}`,
-  'Unit Has Been Swapped': (sr) => `Your Durante Equipment unit has been swapped. Please inspect your equipment and let us know if everything is working. ${sr.SR_ID}`,
-  'Complete': (sr) => `Service complete on ${sr.Equipment_Description}. Issue: ${sr.Tech_Notes || 'Resolved'}. Rate us: ${sr._ratingUrl || sr.Tracking_URL}`,
-  'Follow-Up Required': (sr) => `A follow-up visit is needed: ${sr.Tech_Notes || 'See details'}. We will be in touch. ${sr.SR_ID}`,
-  'Cannot Repair': (sr) => `Unable to complete repair on ${sr.SR_ID}. Please call: ${process.env.DURANTE_OFFICE_PHONE}`,
-  'Cancelled': (sr) => `${sr.SR_ID} has been cancelled. Questions? Call ${process.env.DURANTE_OFFICE_PHONE}`,
+  'Received': (sr, name) =>
+    `Hi ${name}, Durante Equipment has received your service request for ${sr.Equipment_Description} at ${sr.Site_Address}. Your request number is ${sr.SR_ID}. We will be in touch shortly to schedule a technician. Track your request: ${sr.Tracking_URL}`,
+  'Acknowledged': (sr, name) =>
+    `Hi ${name}, your service request ${sr.SR_ID} has been reviewed and acknowledged by our team. A technician will be scheduled shortly. Questions? Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+  'Scheduled': (sr, name) =>
+    `Hi ${name}, a Durante Equipment technician has been scheduled for your service request ${sr.SR_ID}. Appointment: ${formatETA(sr.Scheduled_Date)}. Track: ${sr.Tracking_URL}`,
+  'Dispatched': (sr, name) =>
+    `Hi ${name}, your Durante Equipment technician ${getTechFirstName(sr.Assigned_Tech)} is on the way to ${sr.Site_Address}. ETA: ${formatETA(sr.ETA)}. SR: ${sr.SR_ID}. Track: ${sr.Tracking_URL}`,
+  'On Site': (sr, name) =>
+    `Hi ${name}, your Durante Equipment technician has arrived at ${sr.Site_Address} for SR ${sr.SR_ID}. Track updates: ${sr.Tracking_URL}`,
+  'Diagnosing': (sr, name) =>
+    `Hi ${name}, our technician is currently diagnosing the issue with your equipment for SR ${sr.SR_ID}. We will update you shortly. Track: ${sr.Tracking_URL}`,
+  'In Progress': (sr, name) =>
+    `Hi ${name}, work is currently underway on your equipment for SR ${sr.SR_ID}. Track updates: ${sr.Tracking_URL}`,
+  'Parts Needed': (sr, name) =>
+    `Hi ${name}, our technician has identified that parts are needed for your equipment. Our office will contact you shortly to discuss next steps. SR: ${sr.SR_ID}.`,
+  'Parts Ordered': (sr, name) =>
+    `Hi ${name}, parts have been ordered for your equipment repair. We will contact you once they arrive to schedule a return visit. SR: ${sr.SR_ID}.`,
+  'Parts Arrived': (sr, name) =>
+    `Hi ${name}, the parts for your equipment have arrived. We are scheduling a return visit for SR ${sr.SR_ID}. Our office will contact you shortly.`,
+  'Left Site - Will Schedule Return': (sr, name) =>
+    `Hi ${name}, your Durante Equipment technician has completed the initial visit for SR ${sr.SR_ID}. Our office will contact you to schedule a return visit.`,
+  'Unit to be Swapped': (sr, name) =>
+    `Hi ${name}, your equipment is scheduled to be swapped for SR ${sr.SR_ID}. Estimated date and time: ${formatETA(sr.ETA)}. Questions? Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+  'Unit Has Been Swapped': (sr, name) =>
+    `Hi ${name}, your Durante Equipment unit has been swapped for SR ${sr.SR_ID}. Please inspect your equipment and contact us if you have any concerns. Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+  'Complete': (sr, name) =>
+    `Hi ${name}, service has been completed on your equipment for SR ${sr.SR_ID}. Summary: ${stripTimestamps(sr.Tech_Notes || 'Resolved')}. We hope everything is working well! Please take a moment to rate our service: ${sr._ratingUrl || sr.Tracking_URL}`,
+  'Follow-Up Required': (sr, name) =>
+    `Hi ${name}, a follow-up visit is required for SR ${sr.SR_ID}. Our office will contact you shortly to schedule a return visit. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+  'Cannot Repair': (sr, name) =>
+    `Hi ${name}, unfortunately our technician was unable to complete the repair for SR ${sr.SR_ID}. Please contact our office to discuss next steps: ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
+  'Cancelled': (sr, name) =>
+    `Hi ${name}, your service request SR ${sr.SR_ID} has been cancelled. If you have any questions please contact us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
 };
+
+function getFirstName(fullName) {
+  if (!fullName) return 'there';
+  return fullName.trim().split(/\s+/)[0] || 'there';
+}
 
 // ─── Email Template File Map ────────────────────────────────
 
@@ -210,9 +234,10 @@ async function fireNotifications(sr, status) {
     sr._ratingUrl = `${process.env.BASE_URL}/rate/${sr.SR_ID}/${token}`;
   }
 
-  // Build SMS text
+  // Build SMS text — personalized separately for customer and submitter
   const smsTemplate = SMS_TEMPLATES[status];
-  let smsText = smsTemplate ? smsTemplate(sr) : null;
+  const customerSmsText = smsTemplate ? smsTemplate(sr, sr.Contact_Name || 'there') : null;
+  const submitterSmsText = smsTemplate ? smsTemplate(sr, getFirstName(sr.Submitter_Name)) : null;
 
   // Build email HTML
   const emailHtml = loadEmailTemplate(status);
@@ -227,15 +252,15 @@ async function fireNotifications(sr, status) {
 
   // ─── Send to Customer (unless ACKNOWLEDGED) ────────────
   if (!isAcknowledged) {
-    console.log(`[Notify] Customer SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
-    if (smsText && sr.Contact_Phone) {
-      const smsResult = await sendSMS(sr.Contact_Phone, smsText);
+    console.log(`[Notify] Customer SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!customerSmsText}`);
+    if (customerSmsText && sr.Contact_Phone) {
+      const smsResult = await sendSMS(sr.Contact_Phone, customerSmsText);
       if (smsResult) {
         result.smsSent = true;
         result.customerNotified = true;
       }
     } else {
-      console.log(`[Notify] Customer SMS skipped — phone: "${sr.Contact_Phone}", text: ${smsText ? 'yes' : 'no'}`);
+      console.log(`[Notify] Customer SMS skipped — phone: "${sr.Contact_Phone}", text: ${customerSmsText ? 'yes' : 'no'}`);
     }
 
     if (renderedHtml && sr.Contact_Email) {
@@ -250,9 +275,9 @@ async function fireNotifications(sr, status) {
   // ─── Send to Submitter (always) ────────────────────────
   const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
 
-  console.log(`[Notify] Submitter SMS — phone: "${sr.Submitter_Phone}", hasTemplate: ${!!smsText}`);
-  if (smsText && sr.Submitter_Phone) {
-    const smsResult = await sendSMS(sr.Submitter_Phone, smsText);
+  console.log(`[Notify] Submitter SMS — phone: "${sr.Submitter_Phone}", hasTemplate: ${!!submitterSmsText}`);
+  if (submitterSmsText && sr.Submitter_Phone) {
+    const smsResult = await sendSMS(sr.Submitter_Phone, submitterSmsText);
     if (smsResult) {
       result.smsSent = true;
       result.submitterNotified = true;
