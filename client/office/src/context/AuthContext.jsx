@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
         const payload = JSON.parse(atob(saved.split('.')[1]))
         if (payload.exp * 1000 > Date.now()) {
           const u = JSON.parse(savedUser)
-          if (u.role === 'Office') {
+          if (u.role === 'Manager') {
             setToken(saved)
             setUser(u)
           } else {

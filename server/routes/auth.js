@@ -57,10 +57,12 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/techs — returns list of active tech names for login dropdown
 router.get('/techs', async (req, res) => {
   try {
+    console.log('[TECHS] Fetching techs from sheet...');
     const techs = await getAllTechs();
     const active = techs
       .filter(t => t.Active === 'TRUE')
       .map(t => ({ name: t.Full_Name, role: t.Role }));
+    console.log('[TECHS] Found:', active.length, 'active techs');
     res.json(active);
   } catch (err) {
     console.error('Fetch techs error:', err);
