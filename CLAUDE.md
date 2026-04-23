@@ -171,7 +171,7 @@ Append-only. Never modify existing rows.
 | B | Status | Status at this point in time |
 | C | Notes | Tech or office notes |
 | D | Updated_By | Full name |
-| E | Role | "Tech" or "Office" |
+| E | Role | "Tech" or "Manager" |
 | F | Timestamp | ISO timestamp |
 | G | Customer_Notified | TRUE/FALSE |
 | H | Submitter_Notified | TRUE/FALSE |
@@ -187,7 +187,7 @@ Append-only. Never modify existing rows.
 | C | Email | @duranteequip.com email |
 | D | Phone | Mobile number for SMS |
 | E | PIN | bcrypt hashed 4-digit PIN |
-| F | Role | "Tech" or "Office" |
+| F | Role | "Tech" or "Manager" |
 | G | Active | TRUE/FALSE |
 | H | Created_At | ISO timestamp |
 
@@ -231,24 +231,24 @@ function deriveSubmitterEmail(fullName) {
 ```javascript
 const STATUSES = {
   RECEIVED:            'Received',           // Auto on form submit
-  ACKNOWLEDGED:        'Acknowledged',       // Office confirms receipt
-  SCHEDULED:           'Scheduled',          // Office sets date/time
-  DISPATCHED:          'Dispatched',         // Tech or office
+  ACKNOWLEDGED:        'Acknowledged',       // Manager confirms receipt
+  SCHEDULED:           'Scheduled',          // Manager sets date/time
+  DISPATCHED:          'Dispatched',         // Tech or Manager
   ON_SITE:             'On Site',            // Tech arrival tap
   DIAGNOSING:          'Diagnosing',         // Tech actively diagnosing
   IN_PROGRESS:         'In Progress',        // Tech working
-  PARTS_ORDERED:       'Parts Ordered',      // Tech or office
-  PARTS_ARRIVED:       'Parts Arrived',      // Office confirms parts in
+  PARTS_ORDERED:       'Parts Ordered',      // Tech or Manager
+  PARTS_ARRIVED:       'Parts Arrived',      // Manager confirms parts in
   COMPLETE:            'Complete',           // Tech — triggers PDF + rating
-  FOLLOW_UP_REQUIRED:  'Follow-Up Required', // Office
-  CANNOT_REPAIR:       'Cannot Repair',      // Office
-  CANCELLED:           'Cancelled',          // Office only
+  FOLLOW_UP_REQUIRED:  'Follow-Up Required', // Manager
+  CANNOT_REPAIR:       'Cannot Repair',      // Manager
+  CANCELLED:           'Cancelled',          // Manager only
 }
 
 // Tech can set:
 TECH_STATUSES = ['Dispatched','On Site','Diagnosing','In Progress','Parts Ordered','Complete']
 
-// Office can set all statuses
+// Manager can set all statuses
 ```
 
 Notification rule: Every status change → Customer (email + SMS) + Submitter (email + SMS)
@@ -309,7 +309,7 @@ fire RECEIVED notifications, show confirmation with tracking URL
 - Mark Complete: notes required + optional photo
 - Mobile-first, large tap targets
 
-### /office — Office Dashboard (login required, Role: Office)
+### /office — Office Dashboard (login required, Role: Manager)
 - All SRs table, sortable, color-coded by age (green/yellow/red)
 - Full SR detail + StatusHistory timeline
 - Assign tech, override any status, internal notes
@@ -409,7 +409,7 @@ Verify: Login works, status update fires notifications, cannot set office-only s
 
 ### PHASE 4 — Office Dashboard (/client/office)
 - [ ] Vite + React + Tailwind setup
-- [ ] Login (Role: Office)
+- [ ] Login (Role: Manager)
 - [ ] SR table with age color coding
 - [ ] SR detail + StatusHistory timeline
 - [ ] Assign tech, override status, internal notes
@@ -462,3 +462,4 @@ Verify: Full workflow passes, escalation fires, deployed to production URL ✓
 8. StatusHistory is append-only — never update existing rows
 9. Techs sheet is source of truth for all user management
 10. Keep .env.example updated when new variables are added
+11. **IMPORTANT: The Techs sheet Role column uses 'Manager' for office staff and 'Tech' for field technicians. Never use 'Office' as a role value anywhere in the codebase.**
