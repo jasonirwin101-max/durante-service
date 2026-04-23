@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import api from '../api'
 import SRDetailPanel from '../components/SRDetailPanel'
 import FilterBar from '../components/FilterBar'
@@ -39,7 +39,14 @@ export default function Dashboard() {
   const [requests, setRequests] = useState([])
   const [techs, setTechs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [newBannerCount, setNewBannerCount] = useState(0)
+  const [justArrivedIds, setJustArrivedIds] = useState(() => new Set())
   const [selectedSR, setSelectedSR] = useState(null)
+
+  const prevIdsRef = useRef(new Set())
+  const isInitialRef = useRef(true)
 
   // Filters
   const [filters, setFilters] = useState({
@@ -52,22 +59,40 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData()
-    // Refresh every 30 seconds
-    const interval = setInterval(loadData, 30000)
+    const interval = setInterval(loadData, 60000)
     return () => clearInterval(interval)
   }, [])
 
   async function loadData() {
+    setRefreshing(true)
     try {
       const [srRes, techRes] = await Promise.all([
         api.get('/requests'),
         api.get('/auth/techs'),
       ])
-      setRequests(srRes.data)
+      const newList = srRes.data
+
+      if (!isInitialRef.current) {
+        const arrived = newList
+          .map(sr => sr.SR_ID)
+          .filter(id => !prevIdsRef.current.has(id))
+        if (arrived.length > 0) {
+          setNewBannerCount(arrived.length)
+          setJustArrivedIds(new Set(arrived))
+          setTimeout(() => setNewBannerCount(0), 5000)
+          setTimeout(() => setJustArrivedIds(new Set()), 5000)
+        }
+      }
+      prevIdsRef.current = new Set(newList.map(sr => sr.SR_ID))
+      isInitialRef.current = false
+
+      setRequests(newList)
       setTechs(techRes.data)
+      setLastUpdated(new Date())
     } catch {
       // silent
     } finally {
+      setRefreshing(false)
       setLoading(false)
     }
   }
@@ -161,13 +186,40 @@ export default function Dashboard() {
           </button>
         )}
         <div className="flex-1" />
+        {lastUpdated && (
+          <span className="text-xs text-gray-500">
+            Last updated: {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </span>
+        )}
         <button
           onClick={loadData}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+          disabled={refreshing}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
         >
-          Refresh
+          <svg
+            className={`w-3.5 h-3.5 ${refreshing ? 'refresh-spin' : ''}`}
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 10a6 6 0 0 1 10.24-4.24L17 8" />
+            <path d="M17 3v5h-5" />
+            <path d="M16 10a6 6 0 0 1-10.24 4.24L3 12" />
+            <path d="M3 17v-5h5" />
+          </svg>
+          Refresh / Actualizar
         </button>
       </div>
+
+      {newBannerCount > 0 && (
+        <div className="mb-3 px-4 py-2 bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm rounded-lg">
+          {newBannerCount} new service request{newBannerCount === 1 ? '' : 's'} received
+        </div>
+      )}
 
       {/* Filters */}
       <FilterBar
@@ -205,16 +257,19 @@ export default function Dashboard() {
                       const days = ageDays(sr.Submitted_On)
                       const isSelected = selectedSR?.SR_ID === sr.SR_ID
                       const isReceived = sr.Current_Status === 'Received'
+                      const isJustArrived = justArrivedIds.has(sr.SR_ID)
                       return (
                         <tr
                           key={sr.SR_ID}
                           onClick={() => setSelectedSR(sr)}
                           className={`cursor-pointer border-b border-gray-100 ${
-                            isReceived
-                              ? 'row-received-flash'
-                              : isSelected
-                                ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                                : `${ageRowClass(sr.Submitted_On)} hover:bg-blue-50/50`
+                            isJustArrived
+                              ? 'row-new-flash'
+                              : isReceived
+                                ? 'row-received-flash'
+                                : isSelected
+                                  ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                                  : `${ageRowClass(sr.Submitted_On)} hover:bg-blue-50/50`
                           }`}
                         >
                           <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{sr.SR_ID}</td>

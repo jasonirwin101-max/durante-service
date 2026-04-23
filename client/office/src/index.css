@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+@keyframes received-flash {
+  0%, 100% { background-color: #E31837; color: #FFFFFF; }
+  50% { background-color: #ffcccc; color: #1A1A1A; }
+}
+
+.row-received-flash {
+  animation: received-flash 2s ease-in-out infinite;
+}
+
+.row-received-flash td {
+  color: inherit;
+}
+
+@keyframes new-arrival-flash {
+  0%   { background-color: #fde68a; }
+  100% { background-color: transparent; }
+}
+
+.row-new-flash {
+  animation: new-arrival-flash 5s ease-out forwards;
+}
+
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+.refresh-spin {
+  animation: refresh-spin 0.8s linear infinite;
+}
