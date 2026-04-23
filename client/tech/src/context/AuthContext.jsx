@@ -15,8 +15,14 @@ export function AuthProvider({ children }) {
         // Check if token is expired
         const payload = JSON.parse(atob(saved.split('.')[1]))
         if (payload.exp * 1000 > Date.now()) {
-          setToken(saved)
-          setUser(JSON.parse(savedUser))
+          const u = JSON.parse(savedUser)
+          if (u.role === 'Tech') {
+            setToken(saved)
+            setUser(u)
+          } else {
+            localStorage.removeItem('durante_tech_token')
+            localStorage.removeItem('durante_tech_user')
+          }
         } else {
           localStorage.removeItem('durante_tech_token')
           localStorage.removeItem('durante_tech_user')

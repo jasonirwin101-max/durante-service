@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
+import { useAuth } from '../context/AuthContext'
 
 const ALL_STATUSES = [
   'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
@@ -19,6 +20,8 @@ const STATUS_COLORS = {
 }
 
 export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
+  const { user } = useAuth()
+  const canEdit = user?.role === 'Manager'
   const [sr, setSr] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -220,31 +223,35 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
           </Section>
         )}
 
-        {/* Assign Tech */}
-        <Section title="Assign Tech">
-          <div className="flex gap-2">
-            <select
-              value={assignedTech}
-              onChange={e => setAssignedTech(e.target.value)}
-              className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
-            >
-              <option value="">Unassigned</option>
-              {techs.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
-            </select>
-            {assignedTech !== (sr.Assigned_Tech || '') && (
-              <button
-                onClick={handleAssignTech}
-                disabled={techSaving}
-                className="h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+        {/* Assigned Tech (read-only for Sales, editable for Manager) */}
+        <Section title={canEdit ? 'Assign Tech' : 'Assigned Tech'}>
+          {canEdit ? (
+            <div className="flex gap-2">
+              <select
+                value={assignedTech}
+                onChange={e => setAssignedTech(e.target.value)}
+                className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
               >
-                {techSaving ? '...' : 'Save'}
-              </button>
-            )}
-          </div>
+                <option value="">Unassigned</option>
+                {techs.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+              </select>
+              {assignedTech !== (sr.Assigned_Tech || '') && (
+                <button
+                  onClick={handleAssignTech}
+                  disabled={techSaving}
+                  className="h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                >
+                  {techSaving ? '...' : 'Save'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-900">{sr.Assigned_Tech || <span className="text-gray-400 italic">Unassigned</span>}</p>
+          )}
         </Section>
 
-        {/* Status Override */}
-        <Section title="Update Status">
+        {/* Status Override (Managers only) */}
+        {canEdit && <Section title="Update Status">
           <div className="space-y-2">
             <select
               value={newStatus}
@@ -307,25 +314,33 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
               </>
             )}
           </div>
-        </Section>
+        </Section>}
 
-        {/* Internal Notes */}
+        {/* Internal Notes (editable for Manager, read-only for Sales) */}
         <Section title="Internal Notes">
           <p className="text-xs text-gray-400 mb-1">Not visible to customer or in notifications</p>
-          <textarea
-            value={internalNotes}
-            onChange={e => setInternalNotes(e.target.value)}
-            rows={3}
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none resize-none"
-          />
-          {internalNotes !== (sr.Internal_Notes || '') && (
-            <button
-              onClick={handleSaveNotes}
-              disabled={notesSaving}
-              className="mt-1 h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
-            >
-              {notesSaving ? 'Saving...' : 'Save Notes'}
-            </button>
+          {canEdit ? (
+            <>
+              <textarea
+                value={internalNotes}
+                onChange={e => setInternalNotes(e.target.value)}
+                rows={3}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none resize-none"
+              />
+              {internalNotes !== (sr.Internal_Notes || '') && (
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={notesSaving}
+                  className="mt-1 h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                >
+                  {notesSaving ? 'Saving...' : 'Save Notes'}
+                </button>
+              )}
+            </>
+          ) : (
+            sr.Internal_Notes
+              ? <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Internal_Notes}</pre>
+              : <p className="text-sm text-gray-400 italic">No internal notes</p>
           )}
         </Section>
 
@@ -338,14 +353,16 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
           </Section>
         )}
 
-        {/* Re-send Notifications */}
-        <button
-          onClick={handleResend}
-          disabled={resending}
-          className="w-full h-9 text-sm font-medium border-2 border-[#E31837] text-[#E31837] rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
-        >
-          {resending ? 'Sending...' : 'Re-send Notifications'}
-        </button>
+        {/* Re-send Notifications (Managers only) */}
+        {canEdit && (
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="w-full h-9 text-sm font-medium border-2 border-[#E31837] text-[#E31837] rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            {resending ? 'Sending...' : 'Re-send Notifications'}
+          </button>
+        )}
 
         {/* Tech Notes */}
         {sr.Tech_Notes && (

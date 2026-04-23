@@ -15,7 +15,7 @@ export default function Login() {
   useEffect(() => {
     api.get('/auth/techs')
       .then(res => {
-        setTechs(res.data)
+        setTechs(res.data.filter(t => t.role === 'Tech'))
         setFetchingTechs(false)
       })
       .catch(() => {
@@ -35,6 +35,11 @@ export default function Login() {
     setLoading(true)
     try {
       const res = await api.post('/auth/login', { name: selectedName, pin })
+      if (res.data.user.role !== 'Tech') {
+        setError('Access denied — Tech role required / Acceso denegado — rol de Técnico requerido')
+        setPin('')
+        return
+      }
       login(res.data.token, res.data.user)
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed / Error de inicio de sesión')

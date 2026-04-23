@@ -1,7 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { useAuth } from '../context/AuthContext'
 
 export default function AddTech() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (user && user.role !== 'Manager') navigate('/', { replace: true })
+  }, [user, navigate])
+
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -84,7 +92,8 @@ export default function AddTech() {
             className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
           >
             <option value="Tech">Tech</option>
-            <option value="Office">Office</option>
+            <option value="Manager">Manager</option>
+            <option value="Sales">Sales</option>
           </select>
         </div>
         <p className="text-xs text-gray-500">A random 4-digit PIN will be auto-generated and sent to the phone number via SMS.</p>

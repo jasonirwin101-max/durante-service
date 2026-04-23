@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // POST /api/techs — add a new tech (Office only)
-router.post('/', requireRole('Office'), async (req, res) => {
+router.post('/', requireRole('Manager'), async (req, res) => {
   try {
     const { fullName, email, phone, role } = req.body;
 
@@ -17,8 +17,8 @@ router.post('/', requireRole('Office'), async (req, res) => {
       return res.status(400).json({ error: 'Full name, email, phone, and role are required' });
     }
 
-    if (!['Tech', 'Office'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be Tech or Office' });
+    if (!['Tech', 'Manager', 'Sales'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be Tech, Manager, or Sales' });
     }
 
     // Check for duplicate name

@@ -16,11 +16,16 @@ export default function Header() {
           </div>
           <nav className="flex gap-1">
             <NavBtn to="/" current={location.pathname} label="Service Requests" />
-            <NavBtn to="/add-tech" current={location.pathname} label="Add Tech" />
+            {user?.role === 'Manager' && (
+              <NavBtn to="/add-tech" current={location.pathname} label="Add Tech" />
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-300">{user?.name}</span>
+          <span className="text-sm text-gray-300">
+            {user?.name}
+            {user?.role === 'Sales' && <span className="ml-2 text-xs text-gray-400">(read-only)</span>}
+          </span>
           <button
             onClick={logout}
             className="px-3 py-1.5 text-sm rounded border border-gray-600 hover:bg-gray-800 transition-colors"

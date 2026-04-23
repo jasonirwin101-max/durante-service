@@ -12,7 +12,7 @@ export default function Login() {
 
   useEffect(() => {
     api.get('/auth/techs')
-      .then(res => setTechs(res.data.filter(t => t.role === 'Manager')))
+      .then(res => setTechs(res.data.filter(t => t.role === 'Manager' || t.role === 'Sales')))
       .catch(err => {
         const detail = err.response ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}` : err.message
         console.error('[OFFICE LOGIN] Failed to load techs:', detail)
@@ -30,8 +30,8 @@ export default function Login() {
     setLoading(true)
     try {
       const res = await api.post('/auth/login', { name: selectedName, pin })
-      if (res.data.user.role !== 'Manager') {
-        setError('Access denied — Manager role required')
+      if (res.data.user.role !== 'Manager' && res.data.user.role !== 'Sales') {
+        setError('Access denied — Manager or Sales role required')
         setPin('')
         return
       }

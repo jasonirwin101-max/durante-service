@@ -39,7 +39,7 @@ function canTechSetStatus(status) {
 }
 
 function canRoleSetStatus(role, status) {
-  if (role === 'Office') return isValidStatus(status);
+  if (role === 'Manager') return isValidStatus(status);
   if (role === 'Tech') return canTechSetStatus(status);
   return false;
 }

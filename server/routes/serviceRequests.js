@@ -17,11 +17,12 @@ router.get('/', async (req, res) => {
     const { role, name } = req.user;
 
     let results;
-    if (role === 'Office' || role === 'Manager') {
+    if (role === 'Manager' || role === 'Sales') {
       results = all;
-    } else {
-      // Techs see only their assigned SRs
+    } else if (role === 'Tech') {
       results = all.filter(sr => sr.Assigned_Tech === name);
+    } else {
+      results = [];
     }
 
     // Optional query filters
@@ -156,8 +157,8 @@ router.patch('/:id/status', async (req, res) => {
 // PATCH /api/requests/:id — update other fields (office only)
 router.patch('/:id', async (req, res) => {
   try {
-    if (!['Office', 'Manager'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Only office staff can update SR fields' });
+    if (req.user.role !== 'Manager') {
+      return res.status(403).json({ error: 'Only Managers can update SR fields' });
     }
 
     const sr = await sheets.getServiceRequestById(req.params.id);
