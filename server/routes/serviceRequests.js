@@ -42,6 +42,30 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/requests/completed — list archived completed SRs
+router.get('/completed', async (req, res) => {
+  try {
+    const all = await sheets.getAllCompletedRequests();
+    const { role, name } = req.user;
+
+    let results;
+    if (role === 'Manager' || role === 'Sales') {
+      results = all;
+    } else if (role === 'Tech') {
+      results = all.filter(sr => sr.Assigned_Tech === name);
+    } else {
+      results = [];
+    }
+
+    console.log(`[COMPLETED] role=${role} name=${name} total=${all.length} returned=${results.length}`);
+    res.set('Cache-Control', 'no-store');
+    res.json(results);
+  } catch (err) {
+    console.error('Get completed error:', err);
+    res.status(500).json({ error: 'Failed to fetch completed requests' });
+  }
+});
+
 // GET /api/requests/:id — get single SR with history
 router.get('/:id', async (req, res) => {
   try {
@@ -141,12 +165,27 @@ router.patch('/:id/status', async (req, res) => {
       Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
     });
 
+    // Archive: when status flips to Complete, copy the row to
+    // CompletedRequests and remove it from ServiceRequests.
+    let archived = false;
+    if (status === STATUSES.COMPLETE) {
+      try {
+        await sheets.writeCompletedRequest(updatedSr);
+        await sheets.deleteServiceRequest(req.params.id);
+        archived = true;
+        console.log(`[archive] ${req.params.id} moved to CompletedRequests`);
+      } catch (err) {
+        console.error(`[archive] Failed to archive ${req.params.id}:`, err.message);
+      }
+    }
+
     res.json({
       message: `Status updated to ${status}`,
       srId: req.params.id,
       status,
       updatedAt: now,
       notifications: notifyResult,
+      archived,
     });
   } catch (err) {
     console.error('Status update error:', err);

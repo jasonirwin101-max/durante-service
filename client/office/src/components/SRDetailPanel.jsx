@@ -19,9 +19,9 @@ const STATUS_COLORS = {
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
 
-export default function SRDetailPanel({ srId, techs, onUpdate, onClose }) {
+export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly = false }) {
   const { user } = useAuth()
-  const canEdit = user?.role === 'Manager'
+  const canEdit = !readOnly && user?.role === 'Manager'
   const [sr, setSr] = useState(null)
   const [loading, setLoading] = useState(true)
 

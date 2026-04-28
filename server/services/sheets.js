@@ -49,6 +49,42 @@ function getSheets() {
 }
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
+const COMPLETED_SHEET = 'CompletedRequests';
+
+let _sheetIdCache = {};
+let _completedTabReady = false;
+
+async function getTabId(title) {
+  if (_sheetIdCache[title] !== undefined) return _sheetIdCache[title];
+  const sheets = getSheets();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  for (const tab of meta.data.sheets) {
+    _sheetIdCache[tab.properties.title] = tab.properties.sheetId;
+  }
+  return _sheetIdCache[title];
+}
+
+async function ensureCompletedTab() {
+  if (_completedTabReady) return;
+  const sheets = getSheets();
+  let id = await getTabId(COMPLETED_SHEET);
+  if (id === undefined) {
+    const res = await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ addSheet: { properties: { title: COMPLETED_SHEET } } }] },
+    });
+    id = res.data.replies[0].addSheet.properties.sheetId;
+    _sheetIdCache[COMPLETED_SHEET] = id;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${COMPLETED_SHEET}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [SR_HEADERS] },
+    });
+    console.log(`[sheets] Created ${COMPLETED_SHEET} tab with headers`);
+  }
+  _completedTabReady = true;
+}
 
 // ─── Generic Helpers ────────────────────────────────────────
 
@@ -110,7 +146,50 @@ async function getAllServiceRequests() {
 
 async function getServiceRequestById(srId) {
   const all = await getAllServiceRequests();
+  const found = all.find(sr => sr.SR_ID === srId);
+  if (found) return found;
+  // Fall back to archived completed requests so /track and /requests/:id keep working
+  return getCompletedRequestById(srId);
+}
+
+async function getAllCompletedRequests() {
+  await ensureCompletedTab();
+  const rows = await getRows(COMPLETED_SHEET);
+  if (rows.length <= 1) return [];
+  return rows.slice(1).map(rowToSR);
+}
+
+async function getCompletedRequestById(srId) {
+  const all = await getAllCompletedRequests();
   return all.find(sr => sr.SR_ID === srId) || null;
+}
+
+async function writeCompletedRequest(srData) {
+  await ensureCompletedTab();
+  const row = new Array(SR_HEADERS.length).fill('');
+  for (const [key, idx] of Object.entries(SR_COLS)) {
+    if (srData[key] !== undefined) row[idx] = srData[key];
+  }
+  await appendRow(COMPLETED_SHEET, row);
+}
+
+async function deleteServiceRequest(srId) {
+  const rowNum = await findSrRowNumber(srId);
+  if (!rowNum) return false;
+  const sheets = getSheets();
+  const sheetId = await getTabId('ServiceRequests');
+  if (sheetId === undefined) throw new Error('ServiceRequests tab not found');
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: rowNum - 1, endIndex: rowNum },
+        },
+      }],
+    },
+  });
+  return true;
 }
 
 async function getExistingSrIds() {
@@ -255,6 +334,10 @@ module.exports = {
   SR_HEADERS,
   getAllServiceRequests,
   getServiceRequestById,
+  getAllCompletedRequests,
+  getCompletedRequestById,
+  writeCompletedRequest,
+  deleteServiceRequest,
   getExistingSrIds,
   appendServiceRequest,
   updateServiceRequestField,

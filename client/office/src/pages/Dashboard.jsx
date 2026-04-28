@@ -35,8 +35,17 @@ function ageRowClass(isoDate) {
   return 'bg-white border-l-4 border-l-green-500'
 }
 
+function fmtDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export default function Dashboard() {
   const [requests, setRequests] = useState([])
+  const [completed, setCompleted] = useState([])
+  const [stats, setStats] = useState(null)
   const [techs, setTechs] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -45,16 +54,16 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState(null)
   const [justArrivedIds, setJustArrivedIds] = useState(() => new Set())
   const [selectedSR, setSelectedSR] = useState(null)
+  const [activeTab, setActiveTab] = useState('active')
 
   const prevIdsRef = useRef(new Set())
   const isInitialRef = useRef(true)
 
-  // Filters
   const [filters, setFilters] = useState({
     status: '', tech: '', company: '', dateFrom: '', dateTo: '', escalatedOnly: false,
   })
+  const [completedFilters, setCompletedFilters] = useState({ company: '', dateFrom: '', dateTo: '' })
 
-  // Sorting
   const [sortCol, setSortCol] = useState('Submitted_On')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -70,9 +79,11 @@ export default function Dashboard() {
     console.log('[DASHBOARD] Token present:', !!localStorage.getItem('durante_office_token'))
     setRefreshing(true)
     try {
-      const [srRes, techRes] = await Promise.all([
+      const [srRes, techRes, completedRes, statsRes] = await Promise.all([
         api.get('/requests'),
         api.get('/auth/techs'),
+        api.get('/requests/completed'),
+        api.get('/stats'),
       ])
       const newList = srRes.data
       console.log('[DASHBOARD] SRs returned:', Array.isArray(newList) ? newList.length : `not-array (${typeof newList})`)
@@ -93,6 +104,8 @@ export default function Dashboard() {
 
       setRequests(newList)
       setTechs(techRes.data)
+      setCompleted(completedRes.data || [])
+      setStats(statsRes.data || null)
       setLastUpdated(new Date())
       setLoadError(null)
     } catch (err) {
@@ -107,18 +120,11 @@ export default function Dashboard() {
     }
   }
 
-  const filtered = useMemo(() => {
+  const filteredActive = useMemo(() => {
     let result = [...requests]
-
-    if (filters.escalatedOnly) {
-      result = result.filter(sr => sr.Escalation_Flag === 'TRUE')
-    }
-    if (filters.status) {
-      result = result.filter(sr => sr.Current_Status === filters.status)
-    }
-    if (filters.tech) {
-      result = result.filter(sr => sr.Assigned_Tech === filters.tech)
-    }
+    if (filters.escalatedOnly) result = result.filter(sr => sr.Escalation_Flag === 'TRUE')
+    if (filters.status) result = result.filter(sr => sr.Current_Status === filters.status)
+    if (filters.tech) result = result.filter(sr => sr.Assigned_Tech === filters.tech)
     if (filters.company) {
       const q = filters.company.toLowerCase()
       result = result.filter(sr => sr.Company_Name.toLowerCase().includes(q))
@@ -131,7 +137,6 @@ export default function Dashboard() {
       const to = new Date(filters.dateTo).getTime() + 86400000
       result = result.filter(sr => new Date(sr.Submitted_On).getTime() <= to)
     }
-
     result.sort((a, b) => {
       let va = a[sortCol] || ''
       let vb = b[sortCol] || ''
@@ -146,9 +151,28 @@ export default function Dashboard() {
       if (va > vb) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-
     return result
   }, [requests, filters, sortCol, sortDir])
+
+  const filteredCompleted = useMemo(() => {
+    let result = [...completed]
+    if (completedFilters.company) {
+      const q = completedFilters.company.toLowerCase()
+      result = result.filter(sr => sr.Company_Name.toLowerCase().includes(q))
+    }
+    if (completedFilters.dateFrom) {
+      const from = new Date(completedFilters.dateFrom).getTime()
+      result = result.filter(sr => new Date(sr.Status_Updated_At).getTime() >= from)
+    }
+    if (completedFilters.dateTo) {
+      const to = new Date(completedFilters.dateTo).getTime() + 86400000
+      result = result.filter(sr => new Date(sr.Status_Updated_At).getTime() <= to)
+    }
+    result.sort((a, b) =>
+      (new Date(b.Status_Updated_At).getTime() || 0) - (new Date(a.Status_Updated_At).getTime() || 0)
+    )
+    return result
+  }, [completed, completedFilters])
 
   function handleSort(col) {
     if (sortCol === col) {
@@ -166,30 +190,57 @@ export default function Dashboard() {
     }
   }
 
-  const openCount = requests.filter(r =>
-    !['Complete', 'Cancelled', 'Cannot Repair'].includes(r.Current_Status)
-  ).length
+  function exportCompletedCSV() {
+    const headers = [
+      'SR_ID', 'Submitted_On', 'Company_Name', 'Contact_Name', 'Contact_Phone',
+      'Site_Address', 'Equipment_Description', 'Asset_Number', 'Unit_Number',
+      'Assigned_Tech', 'Current_Status', 'Status_Updated_At', 'Tech_Notes',
+      'Customer_Charged', 'Amount_Charged', 'Operator_Issue', 'Satisfaction_Rating',
+    ]
+    const escape = (v) => {
+      const s = String(v ?? '')
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const lines = [headers.join(',')]
+    for (const sr of filteredCompleted) {
+      lines.push(headers.map(h => escape(sr[h])).join(','))
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `completed-srs-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const escalatedCount = requests.filter(r => r.Escalation_Flag === 'TRUE').length
+  const isCompletedSelected = selectedSR && completed.some(sr => sr.SR_ID === selectedSR.SR_ID)
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-4">
-      {/* Stats Bar */}
+      {/* KPI cards */}
+      <KPICards stats={stats} />
+
+      {/* Tab navigation */}
+      <div className="flex border-b border-gray-200 mb-4">
+        <TabBtn active={activeTab === 'active'} onClick={() => { setActiveTab('active'); setSelectedSR(null); }}>
+          Active Requests <span className="ml-1 text-xs text-gray-500">({requests.length})</span>
+        </TabBtn>
+        <TabBtn active={activeTab === 'completed'} onClick={() => { setActiveTab('completed'); setSelectedSR(null); }}>
+          Completed Requests <span className="ml-1 text-xs text-gray-500">({completed.length})</span>
+        </TabBtn>
+      </div>
+
+      {/* Refresh / last-updated bar */}
       <div className="flex items-center gap-6 mb-4">
-        <div>
-          <span className="text-2xl font-bold text-gray-900">{openCount}</span>
-          <span className="text-sm text-gray-500 ml-1">Open</span>
-        </div>
-        <div>
-          <span className="text-2xl font-bold text-gray-900">{requests.length}</span>
-          <span className="text-sm text-gray-500 ml-1">Total</span>
-        </div>
-        {escalatedCount > 0 && (
+        {activeTab === 'active' && escalatedCount > 0 && (
           <button
             onClick={() => setFilters(f => ({ ...f, escalatedOnly: !f.escalatedOnly }))}
             className={`px-3 py-1 text-sm rounded-full font-medium transition-colors ${
-              filters.escalatedOnly
-                ? 'bg-red-600 text-white'
-                : 'bg-red-100 text-red-700 hover:bg-red-200'
+              filters.escalatedOnly ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'
             }`}
           >
             {escalatedCount} Escalated
@@ -208,13 +259,8 @@ export default function Dashboard() {
         >
           <svg
             className={`w-3.5 h-3.5 ${refreshing ? 'refresh-spin' : ''}`}
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+            viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
           >
             <path d="M4 10a6 6 0 0 1 10.24-4.24L17 8" />
             <path d="M17 3v5h-5" />
@@ -237,7 +283,89 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Filters */}
+      {activeTab === 'active' && (
+        <ActiveView
+          loading={loading}
+          filtered={filteredActive}
+          requests={requests}
+          filters={filters}
+          setFilters={setFilters}
+          techs={techs}
+          sortCol={sortCol}
+          sortDir={sortDir}
+          handleSort={handleSort}
+          selectedSR={selectedSR}
+          setSelectedSR={setSelectedSR}
+          justArrivedIds={justArrivedIds}
+          handleSRUpdate={handleSRUpdate}
+          isCompletedSelected={isCompletedSelected}
+        />
+      )}
+
+      {activeTab === 'completed' && (
+        <CompletedView
+          loading={loading}
+          filtered={filteredCompleted}
+          completedFilters={completedFilters}
+          setCompletedFilters={setCompletedFilters}
+          exportCompletedCSV={exportCompletedCSV}
+          selectedSR={selectedSR}
+          setSelectedSR={setSelectedSR}
+          techs={techs}
+          handleSRUpdate={handleSRUpdate}
+        />
+      )}
+    </div>
+  )
+}
+
+function KPICards({ stats }) {
+  const now = new Date()
+  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const yearLabel = String(now.getFullYear())
+  const cards = [
+    { label: 'Service Requests MTD', value: stats?.srMTD, sub: monthLabel },
+    { label: 'Service Requests YTD', value: stats?.srYTD, sub: yearLabel },
+    { label: 'Open Requests MTD', value: stats?.openMTD, sub: monthLabel },
+    { label: 'Completed MTD', value: stats?.completedMTD, sub: monthLabel },
+  ]
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      {cards.map(c => (
+        <div key={c.label} className="bg-[#1a2035] rounded-lg p-5 shadow-sm">
+          <div className="text-white text-sm font-medium uppercase tracking-wide opacity-80">{c.label}</div>
+          <div className="text-[#E31837] text-4xl font-bold mt-2 leading-none">
+            {c.value === undefined || c.value === null ? '—' : c.value}
+          </div>
+          <div className="text-gray-400 text-xs mt-2">{c.sub}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TabBtn({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+        active
+          ? 'border-[#E31837] text-[#E31837]'
+          : 'border-transparent text-gray-500 hover:text-gray-700'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ActiveView({
+  loading, filtered, requests, filters, setFilters, techs,
+  sortCol, sortDir, handleSort, selectedSR, setSelectedSR,
+  justArrivedIds, handleSRUpdate, isCompletedSelected,
+}) {
+  return (
+    <>
       <FilterBar
         filters={filters}
         setFilters={setFilters}
@@ -246,7 +374,6 @@ export default function Dashboard() {
       />
 
       <div className="flex gap-4 mt-4">
-        {/* SR Table */}
         <div className={`${selectedSR ? 'w-1/2' : 'w-full'} transition-all`}>
           {loading ? (
             <div className="text-center text-gray-500 py-12">Loading...</div>
@@ -320,7 +447,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Detail Panel */}
         {selectedSR && (
           <div className="w-1/2">
             <SRDetailPanel
@@ -328,11 +454,125 @@ export default function Dashboard() {
               techs={techs}
               onUpdate={handleSRUpdate}
               onClose={() => setSelectedSR(null)}
+              readOnly={isCompletedSelected}
             />
           </div>
         )}
       </div>
-    </div>
+    </>
+  )
+}
+
+function CompletedView({
+  loading, filtered, completedFilters, setCompletedFilters,
+  exportCompletedCSV, selectedSR, setSelectedSR, techs, handleSRUpdate,
+}) {
+  return (
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={completedFilters.company}
+          onChange={e => setCompletedFilters(f => ({ ...f, company: e.target.value }))}
+          placeholder="Search company"
+          className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#E31837] outline-none"
+        />
+        <div className="flex items-center gap-1 text-sm text-gray-600">
+          <span>Completed:</span>
+          <input
+            type="date"
+            value={completedFilters.dateFrom}
+            onChange={e => setCompletedFilters(f => ({ ...f, dateFrom: e.target.value }))}
+            className="h-9 px-2 border border-gray-300 rounded-lg text-sm"
+          />
+          <span>to</span>
+          <input
+            type="date"
+            value={completedFilters.dateTo}
+            onChange={e => setCompletedFilters(f => ({ ...f, dateTo: e.target.value }))}
+            className="h-9 px-2 border border-gray-300 rounded-lg text-sm"
+          />
+        </div>
+        {(completedFilters.company || completedFilters.dateFrom || completedFilters.dateTo) && (
+          <button
+            onClick={() => setCompletedFilters({ company: '', dateFrom: '', dateTo: '' })}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear
+          </button>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={exportCompletedCSV}
+          disabled={filtered.length === 0}
+          className="h-9 px-4 text-sm font-medium bg-[#1A1A1A] text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Export CSV ({filtered.length})
+        </button>
+      </div>
+
+      <div className="flex gap-4">
+        <div className={`${selectedSR ? 'w-1/2' : 'w-full'} transition-all`}>
+          {loading ? (
+            <div className="text-center text-gray-500 py-12">Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No completed requests match filters</div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">SR#</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Equipment</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tech</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Completed</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(sr => {
+                      const isSelected = selectedSR?.SR_ID === sr.SR_ID
+                      return (
+                        <tr
+                          key={sr.SR_ID}
+                          onClick={() => setSelectedSR(sr)}
+                          className={`cursor-pointer border-b border-gray-100 ${
+                            isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{sr.SR_ID}</td>
+                          <td className="px-3 py-2 font-medium max-w-[150px] truncate">{sr.Company_Name}</td>
+                          <td className="px-3 py-2 max-w-[120px] truncate">{sr.Contact_Name}</td>
+                          <td className="px-3 py-2 max-w-[160px] truncate">{sr.Equipment_Description}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{sr.Assigned_Tech || <span className="text-gray-400 italic">Unassigned</span>}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-gray-600">{fmtDate(sr.Status_Updated_At)}</td>
+                          <td className="px-3 py-2 max-w-[140px] truncate">{sr.Site_Address}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {selectedSR && (
+          <div className="w-1/2">
+            <SRDetailPanel
+              srId={selectedSR.SR_ID}
+              techs={techs}
+              onUpdate={handleSRUpdate}
+              onClose={() => setSelectedSR(null)}
+              readOnly={true}
+            />
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
