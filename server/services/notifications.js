@@ -37,8 +37,8 @@ const CUSTOMER_SMS_TEMPLATES = {
     `Hi ${name}, your equipment is scheduled to be swapped for SR ${sr.SR_ID}. Estimated date and time: ${formatETA(sr.ETA)}. Questions? Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'Unit Has Been Swapped': (sr, name) =>
     `Hi ${name}, your Durante Equipment unit has been swapped for SR ${sr.SR_ID}. Please inspect your equipment and contact us if you have any concerns. Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
-  'Complete': (sr, name) =>
-    `Hi ${name}, service has been completed on your equipment for SR ${sr.SR_ID}. Summary: ${stripTimestamps(sr.Tech_Notes || 'Resolved')}. We hope everything is working well! Please take a moment to rate our service: ${sr._ratingUrl || sr.Tracking_URL}`,
+  'Complete': (sr, name, currentNote) =>
+    `Hi ${name}, service has been completed on your equipment for SR ${sr.SR_ID}. Summary: ${stripTimestamps(currentNote || 'Resolved')}. We hope everything is working well! Please take a moment to rate our service: ${sr._ratingUrl || sr.Tracking_URL}`,
   'Follow-Up Required': (sr, name) =>
     `Hi ${name}, a follow-up visit is required for SR ${sr.SR_ID}. Our office will contact you shortly to schedule a return visit. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'Cannot Repair': (sr, name) =>
@@ -311,15 +311,16 @@ function getTechFirstName(fullName) {
  * @param {string} status - The new status
  * @returns {object} - { customerNotified, submitterNotified, smsSent, emailSent }
  */
-async function sendCustomerNotification(sr, status) {
+async function sendCustomerNotification(sr, status, currentNote = '') {
   const out = { notified: false, smsSent: false, emailSent: false };
 
   // Acknowledged is submitter-only per spec — customer is not notified.
   if (status === 'Acknowledged') return out;
 
-  // SMS — professional, customer-facing. Skip unless customer explicitly opted in (TCPA).
+  // SMS — customer-facing. Templates that reference notes use ONLY this update's
+  // currentNote, never the full Tech_Notes history. Gate on TCPA consent.
   const smsBuilder = CUSTOMER_SMS_TEMPLATES[status];
-  const smsText = smsBuilder ? smsBuilder(sr, sr.Contact_Name || 'there') : null;
+  const smsText = smsBuilder ? smsBuilder(sr, sr.Contact_Name || 'there', currentNote) : null;
   if (sr.SMS_Consent === 'Yes') {
     console.log(`[Notify:Customer] SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
     if (smsText && sr.Contact_Phone) {
@@ -332,10 +333,15 @@ async function sendCustomerNotification(sr, status) {
     console.log(`[SMS] Skipped — customer opted out: ${sr.Contact_Name || sr.SR_ID}`);
   }
 
-  // Email — customer-facing template from EMAIL_TEMPLATE_MAP
+  // Email — customer-facing template. Override {{TECH_NOTES}} and {{SUMMARY}} so
+  // they resolve to ONLY this update's note, not the accumulated Tech_Notes blob.
   const html = loadEmailTemplate(status);
   if (html && sr.Contact_Email) {
-    const rendered = renderTemplate(html, sr);
+    const customerExtras = {
+      '{{TECH_NOTES}}': stripTimestamps(currentNote || ''),
+      '{{SUMMARY}}': stripTimestamps(currentNote || sr.Problem_Description || ''),
+    };
+    const rendered = renderTemplate(html, sr, customerExtras);
     const subjectFn = EMAIL_SUBJECTS[status];
     const subject = subjectFn ? subjectFn(sr) : `Service Request ${sr.SR_ID} — Update`;
     const sendFn = (status === 'Complete' && sr._pdfBuffer)
@@ -397,7 +403,7 @@ async function sendSubmitterNotification(sr, status) {
   return out;
 }
 
-async function fireNotifications(sr, status) {
+async function fireNotifications(sr, status, currentNotes = {}) {
   const result = {
     customerNotified: false,
     submitterNotified: false,
@@ -423,7 +429,7 @@ async function fireNotifications(sr, status) {
     }
   }
 
-  const custRes = await sendCustomerNotification(sr, status);
+  const custRes = await sendCustomerNotification(sr, status, currentNotes.customerNote || '');
   const submRes = await sendSubmitterNotification(sr, status);
 
   result.customerNotified = custRes.notified;

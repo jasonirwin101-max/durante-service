@@ -10,6 +10,18 @@ const router = express.Router();
 // All routes below require authentication
 router.use(authMiddleware);
 
+function formatNoteDateTime(iso) {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const dateStr = d.toLocaleDateString('en-US', {
+    month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/New_York',
+  });
+  const timeStr = d.toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York',
+  });
+  return `${dateStr} ${timeStr}`;
+}
+
 // GET /api/requests — get all service requests (filtered by role)
 router.get('/', async (req, res) => {
   try {
@@ -125,23 +137,37 @@ router.patch('/:id/status', async (req, res) => {
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
 
-    // Process customer-facing notes (Tech_Notes column) — translate ES→EN if detected
+    const stamp = formatNoteDateTime(now);
+
+    // Process customer-facing notes (Tech_Notes column) — translate each new note
+    // independently, prefix with timestamp, and APPEND to the existing column.
+    // Capture the translated text for use in this status update's customer notification.
+    let translatedCustomerNote = '';
     if (customerNotesRaw && customerNotesRaw.trim()) {
       const translated = await processNotes(customerNotesRaw.trim());
-      updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n${translated.text}` : translated.text;
+      translatedCustomerNote = translated.text;
+      const newLine = `${stamp} — ${translated.text}`;
+      updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n${newLine}` : newLine;
       if (translated.original) {
-        const prev = sr.Tech_Notes_Original || '';
-        updates.Tech_Notes_Original = prev ? `${prev}\n${translated.original}` : translated.original;
+        const origLine = `${stamp} — ${translated.original}`;
+        updates.Tech_Notes_Original = sr.Tech_Notes_Original
+          ? `${sr.Tech_Notes_Original}\n${origLine}`
+          : origLine;
       }
     }
 
-    // Process internal notes (Internal_Notes column) — translate ES→EN if detected
+    // Process internal notes (Internal_Notes column) — same translate + stack flow.
+    let translatedInternalNote = '';
     if (internalNotes && internalNotes.trim()) {
       const translated = await processNotes(internalNotes.trim());
-      updates.Internal_Notes = sr.Internal_Notes ? `${sr.Internal_Notes}\n${translated.text}` : translated.text;
+      translatedInternalNote = translated.text;
+      const newLine = `${stamp} — ${translated.text}`;
+      updates.Internal_Notes = sr.Internal_Notes ? `${sr.Internal_Notes}\n${newLine}` : newLine;
       if (translated.original) {
-        const prev = sr.Internal_Notes_Original || '';
-        updates.Internal_Notes_Original = prev ? `${prev}\n${translated.original}` : translated.original;
+        const origLine = `${stamp} — ${translated.original}`;
+        updates.Internal_Notes_Original = sr.Internal_Notes_Original
+          ? `${sr.Internal_Notes_Original}\n${origLine}`
+          : origLine;
       }
     }
 
@@ -155,8 +181,13 @@ router.patch('/:id/status', async (req, res) => {
     // Re-read the SR with updated fields for notification templates
     const updatedSr = await sheets.getServiceRequestById(req.params.id);
 
-    // Fire notifications
-    const notifyResult = await fireNotifications(updatedSr, status);
+    // Fire notifications. Pass the JUST-TRANSLATED current notes so the customer
+    // sees only this update — not the full Tech_Notes history accumulated in
+    // the sheet. Internal/submitter rendering still uses the full history.
+    const notifyResult = await fireNotifications(updatedSr, status, {
+      customerNote: translatedCustomerNote,
+      internalNote: translatedInternalNote,
+    });
 
     // Build notes with rating token if COMPLETE
     let historyNotes = customerNotesRaw || '';
