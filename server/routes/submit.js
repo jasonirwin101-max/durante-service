@@ -39,9 +39,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'SMS consent must be Yes or No' });
     }
 
-    // Generate SR ID
-    const existingIds = await sheets.getExistingSrIds();
-    const srId = generateSrId(existingIds);
+    // Generate SR ID — checks both ServiceRequests and CompletedRequests
+    const srId = await generateSrId();
     const now = new Date().toISOString();
     const trackingUrl = `${process.env.BASE_URL}/track/${srId}`;
     const submitterEmail = deriveSubmitterEmail(submitterName);
