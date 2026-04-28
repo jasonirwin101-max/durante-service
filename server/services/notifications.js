@@ -335,13 +335,17 @@ async function sendCustomerNotification(sr, status, currentNote = '') {
 
   // Email — customer-facing template. Override {{TECH_NOTES}} and {{SUMMARY}} so
   // they resolve to ONLY this update's note, not the accumulated Tech_Notes blob.
+  // Also inject a "Technician Update" block before the Questions footer line so
+  // the note appears in EVERY status email, not only those whose template
+  // happened to reference {{TECH_NOTES}}.
   const html = loadEmailTemplate(status);
   if (html && sr.Contact_Email) {
     const customerExtras = {
       '{{TECH_NOTES}}': stripTimestamps(currentNote || ''),
       '{{SUMMARY}}': stripTimestamps(currentNote || sr.Problem_Description || ''),
     };
-    const rendered = renderTemplate(html, sr, customerExtras);
+    let rendered = renderTemplate(html, sr, customerExtras);
+    rendered = injectTechUpdateBlock(rendered, currentNote);
     const subjectFn = EMAIL_SUBJECTS[status];
     const subject = subjectFn ? subjectFn(sr) : `Service Request ${sr.SR_ID} — Update`;
     const sendFn = (status === 'Complete' && sr._pdfBuffer)
@@ -354,6 +358,29 @@ async function sendCustomerNotification(sr, status, currentNote = '') {
   }
 
   return out;
+}
+
+function injectTechUpdateBlock(html, currentNote) {
+  if (!currentNote || !currentNote.trim()) return html;
+  // Convert newlines in the note to <br> so multi-line notes render in email clients.
+  const noteHtml = escapeHtml(currentNote.trim()).replace(/\n/g, '<br>');
+  const block = `
+<div style="margin:20px 0;padding:14px 18px;background-color:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="font-size:11px;font-weight:bold;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Technician Update</div>
+  <div style="font-size:14px;color:#78350F;line-height:1.5;">${noteHtml}</div>
+</div>
+`;
+  // Inject right before the "Questions?" footer line — every customer template
+  // shares this pattern, so the block lands in the main content area.
+  const marker = /<p style="color:#666;font-size:13px;">Questions\?/i;
+  if (marker.test(html)) {
+    return html.replace(marker, `${block}<p style="color:#666;font-size:13px;">Questions?`);
+  }
+  // Fallback: inject before </body> for any template that doesn't follow the pattern.
+  if (html.includes('</body>')) {
+    return html.replace('</body>', `${block}</body>`);
+  }
+  return html + block;
 }
 
 async function sendSubmitterNotification(sr, status) {
@@ -387,10 +414,12 @@ async function sendSubmitterNotification(sr, status) {
       '{{ASSET_NUMBER}}': sr.Asset_Number || '',
       '{{UNIT_NUMBER}}': sr.Unit_Number || '',
       '{{ASSIGNED_TECH}}': sr.Assigned_Tech || 'Unassigned',
-      '{{INTERNAL_NOTES}}': sr.Internal_Notes || '',
+      // Render multi-line accumulated notes with <br> so each timestamped
+      // entry lands on its own line even in email clients that ignore CSS.
+      '{{INTERNAL_NOTES}}': escapeHtml(sr.Internal_Notes || '').replace(/\n/g, '<br>'),
       '{{TIMELINE_HTML}}': buildTimelineHtml(history),
       '{{DASHBOARD_URL}}': dashboardUrl,
-      '{{TECH_NOTES_FULL}}': stripTimestamps(sr.Tech_Notes || ''),
+      '{{TECH_NOTES_FULL}}': escapeHtml(stripTimestamps(sr.Tech_Notes || '')).replace(/\n/g, '<br>'),
     };
     const rendered = renderTemplate(html, sr, extras);
     const subject = `${sr.SR_ID} - ${sr.Company_Name} - Status: ${status}`;

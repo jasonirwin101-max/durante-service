@@ -340,7 +340,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
             </>
           ) : (
             sr.Internal_Notes
-              ? <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Internal_Notes}</pre>
+              ? <NoteLines value={sr.Internal_Notes} />
               : <p className="text-sm text-gray-400 italic">No internal notes</p>
           )}
         </Section>
@@ -368,19 +368,19 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
         {/* Customer Update (Tech_Notes — sent to customer) */}
         {sr.Tech_Notes && (
           <Section title={sr.Tech_Notes_Original ? 'Customer Update (EN)' : 'Customer Update'}>
-            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Tech_Notes}</pre>
+            <NoteLines value={sr.Tech_Notes} />
           </Section>
         )}
 
         {sr.Tech_Notes_Original && (
           <Section title="Customer Update (ES)">
-            <pre className="text-sm text-gray-500 italic whitespace-pre-wrap font-sans">{sr.Tech_Notes_Original}</pre>
+            <NoteLines value={sr.Tech_Notes_Original} italic />
           </Section>
         )}
 
         {sr.Internal_Notes_Original && (
           <Section title="Internal Notes (ES)">
-            <pre className="text-sm text-gray-500 italic whitespace-pre-wrap font-sans">{sr.Internal_Notes_Original}</pre>
+            <NoteLines value={sr.Internal_Notes_Original} italic />
           </Section>
         )}
 
@@ -422,6 +422,18 @@ function Section({ title, children }) {
     <div>
       <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">{title}</h4>
       <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function NoteLines({ value, italic = false }) {
+  const lines = String(value || '').split('\n').map(l => l.trim()).filter(Boolean)
+  if (lines.length === 0) return null
+  return (
+    <div className={`space-y-1 text-sm ${italic ? 'italic text-gray-500' : 'text-gray-700'}`}>
+      {lines.map((line, i) => (
+        <div key={i} className="leading-relaxed">{line}</div>
+      ))}
     </div>
   )
 }

@@ -233,7 +233,11 @@ export default function SRDetail() {
       {sr.Tech_Notes && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <h3 className="font-bold text-gray-900 mb-2">{L.techNotes[0]} <span className="text-sm font-normal text-gray-500">/ {L.techNotes[1]}</span></h3>
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Tech_Notes}</pre>
+          <div className="space-y-1 text-sm text-gray-700">
+            {String(sr.Tech_Notes).split('\n').map(l => l.trim()).filter(Boolean).map((line, i) => (
+              <div key={i} className="leading-relaxed">{line}</div>
+            ))}
+          </div>
         </div>
       )}
 

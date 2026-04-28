@@ -144,7 +144,10 @@ router.patch('/:id/status', async (req, res) => {
     // Capture the translated text for use in this status update's customer notification.
     let translatedCustomerNote = '';
     if (customerNotesRaw && customerNotesRaw.trim()) {
-      const translated = await processNotes(customerNotesRaw.trim());
+      const original = customerNotesRaw.trim();
+      console.log('[TRANSLATE] Customer note (input):', original);
+      const translated = await processNotes(original);
+      console.log('[TRANSLATE] Customer translated:', translated.text, '| wasSpanish:', !!translated.original);
       translatedCustomerNote = translated.text;
       const newLine = `${stamp} — ${translated.text}`;
       updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n${newLine}` : newLine;
@@ -159,7 +162,10 @@ router.patch('/:id/status', async (req, res) => {
     // Process internal notes (Internal_Notes column) — same translate + stack flow.
     let translatedInternalNote = '';
     if (internalNotes && internalNotes.trim()) {
-      const translated = await processNotes(internalNotes.trim());
+      const original = internalNotes.trim();
+      console.log('[TRANSLATE] Internal note (input):', original);
+      const translated = await processNotes(original);
+      console.log('[TRANSLATE] Internal translated:', translated.text, '| wasSpanish:', !!translated.original);
       translatedInternalNote = translated.text;
       const newLine = `${stamp} — ${translated.text}`;
       updates.Internal_Notes = sr.Internal_Notes ? `${sr.Internal_Notes}\n${newLine}` : newLine;
