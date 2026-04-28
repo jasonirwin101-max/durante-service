@@ -307,15 +307,19 @@ async function sendCustomerNotification(sr, status) {
   // Acknowledged is submitter-only per spec — customer is not notified.
   if (status === 'Acknowledged') return out;
 
-  // SMS — professional, customer-facing
+  // SMS — professional, customer-facing. Skip unless customer explicitly opted in (TCPA).
   const smsBuilder = CUSTOMER_SMS_TEMPLATES[status];
   const smsText = smsBuilder ? smsBuilder(sr, sr.Contact_Name || 'there') : null;
-  console.log(`[Notify:Customer] SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
-  if (smsText && sr.Contact_Phone) {
-    if (await sendSMS(sr.Contact_Phone, smsText)) {
-      out.smsSent = true;
-      out.notified = true;
+  if (sr.SMS_Consent === 'Yes') {
+    console.log(`[Notify:Customer] SMS — phone: "${sr.Contact_Phone}", hasTemplate: ${!!smsText}`);
+    if (smsText && sr.Contact_Phone) {
+      if (await sendSMS(sr.Contact_Phone, smsText)) {
+        out.smsSent = true;
+        out.notified = true;
+      }
     }
+  } else {
+    console.log(`[SMS] Skipped — customer opted out: ${sr.Contact_Name || sr.SR_ID}`);
   }
 
   // Email — customer-facing template from EMAIL_TEMPLATE_MAP

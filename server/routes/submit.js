@@ -15,6 +15,7 @@ router.post('/', async (req, res) => {
     const clean = sanitizeObject(req.body);
     const {
       companyName, contactName, contactPhone, contactEmail,
+      smsConsent,
       siteAddress, customersNeed, assetNumber, equipmentDescription,
       problemDescription, submitterName, submitterPhone,
       photos,
@@ -32,6 +33,10 @@ router.post('/', async (req, res) => {
 
     if (missing.length > 0) {
       return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+    }
+
+    if (smsConsent !== 'Yes' && smsConsent !== 'No') {
+      return res.status(400).json({ error: 'SMS consent must be Yes or No' });
     }
 
     // Generate SR ID
@@ -78,6 +83,7 @@ router.post('/', async (req, res) => {
       Customer_Charged: 'FALSE',
       Amount_Charged: '',
       Service_Completed: 'FALSE',
+      SMS_Consent: smsConsent,
     };
 
     // Write to ServiceRequests sheet

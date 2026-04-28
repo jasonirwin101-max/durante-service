@@ -160,6 +160,7 @@ NEVER insert columns — only append to the right.
 | AG | Customer_Charged | TRUE if customer was charged |
 | AH | Amount_Charged | Dollar amount charged |
 | AI | Service_Completed | TRUE when status = COMPLETE |
+| AM | SMS_Consent | "Yes" or "No" — TCPA opt-in captured at submit |
 
 ### Sheet 2: `StatusHistory`
 

@@ -32,6 +32,7 @@ const REQUIRED_FIELDS = [
 
 const INITIAL = {
   companyName: '', contactName: '', contactPhone: '', contactEmail: '',
+  smsConsent: '',
   siteAddress: '', customersNeed: '', assetNumber: '', equipmentDescription: '',
   problemDescription: '', submitterName: '', submitterPhone: '',
 }
@@ -83,6 +84,9 @@ export default function App() {
     }
     if (form.submitterPhone && form.submitterPhone.replace(/\D/g, '').length < 10) {
       errs.submitterPhone = 'Enter a valid 10-digit phone number'
+    }
+    if (form.smsConsent !== 'Yes' && form.smsConsent !== 'No') {
+      errs.smsConsent = 'Please select Yes or No for SMS updates'
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -221,6 +225,7 @@ export default function App() {
               <Field label="Contact Phone" required type="tel" value={form.contactPhone} onChange={v => update('contactPhone', v)} error={errors.contactPhone} />
               <Field label="Contact Email" required type="email" value={form.contactEmail} onChange={v => update('contactEmail', v)} error={errors.contactEmail} />
             </div>
+            <SmsConsentField value={form.smsConsent} onChange={v => update('smsConsent', v)} error={errors.smsConsent} />
             <Field label="Site Address" required value={form.siteAddress} onChange={v => update('siteAddress', v)} error={errors.siteAddress} />
           </FormSection>
 
@@ -347,6 +352,47 @@ function SelectField({ label, required, value, onChange, error, options, placeho
           <option key={opt} value={opt}>{opt}</option>
         ))}
       </select>
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  )
+}
+
+function SmsConsentField({ value, onChange, error }) {
+  return (
+    <div data-error={!!error}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Would you like to receive updates via SMS (text)? <span className="text-red-500">*</span>
+      </label>
+      <p className="text-xs text-gray-400 mb-2 leading-relaxed">
+        Message &amp; data rates may apply. Your information will not be shared. Reply STOP to opt out.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2">
+        {['Yes', 'No'].map(opt => {
+          const selected = value === opt
+          return (
+            <label
+              key={opt}
+              className={`flex items-center gap-3 min-h-[48px] px-4 rounded-lg border-2 cursor-pointer transition-colors flex-1 ${
+                selected
+                  ? 'border-[#E31837] bg-red-50'
+                  : error
+                    ? 'border-red-400 bg-red-50/50 hover:border-red-500'
+                    : 'border-gray-300 bg-white hover:border-gray-400'
+              }`}
+            >
+              <input
+                type="radio"
+                name="smsConsent"
+                value={opt}
+                checked={selected}
+                onChange={() => onChange(opt)}
+                className="w-5 h-5 accent-[#E31837]"
+              />
+              <span className="text-base font-medium text-gray-900">{opt}</span>
+            </label>
+          )
+        })}
+      </div>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )

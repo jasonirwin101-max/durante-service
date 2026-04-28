@@ -172,6 +172,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           <Row label="Contact" value={sr.Contact_Name} />
           <Row label="Phone" value={sr.Contact_Phone} link={`tel:${sr.Contact_Phone}`} />
           <Row label="Email" value={sr.Contact_Email} link={`mailto:${sr.Contact_Email}`} />
+          <SmsConsentRow consent={sr.SMS_Consent} />
           <Row label="Site" value={sr.Site_Address} />
           <Row label="Submitted By" value={sr.Submitter_Name} />
           <Row label="Submitter Phone" value={sr.Submitter_Phone} />
@@ -416,6 +417,19 @@ function Section({ title, children }) {
     <div>
       <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">{title}</h4>
       <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function SmsConsentRow({ consent }) {
+  const optedIn = consent === 'Yes'
+  const optedOut = consent === 'No'
+  const label = optedIn ? '✓ Opted In' : optedOut ? '✗ Opted Out' : '— Not specified'
+  const color = optedIn ? 'text-green-600' : optedOut ? 'text-red-600' : 'text-gray-400'
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-gray-500 w-28 flex-shrink-0">SMS Updates</span>
+      <span className={`font-medium ${color}`}>{label}</span>
     </div>
   )
 }
