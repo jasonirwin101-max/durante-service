@@ -31,12 +31,14 @@ export default function SRDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
-  const [notes, setNotes] = useState('')
+  const [internalNotes, setInternalNotes] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
   const [eta, setEta] = useState('')
   const [unitNumber, setUnitNumber] = useState('')
   const [unitSaving, setUnitSaving] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
-  const [completeNotes, setCompleteNotes] = useState('')
+  const [completeCustomerNotes, setCompleteCustomerNotes] = useState('')
+  const [completeInternalNotes, setCompleteInternalNotes] = useState('')
   const [completeError, setCompleteError] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
 
@@ -62,11 +64,13 @@ export default function SRDetail() {
     setStatusMsg('')
     try {
       const body = { status }
-      if (notes.trim()) body.notes = notes.trim()
+      if (customerNotes.trim()) body.customerNotes = customerNotes.trim()
+      if (internalNotes.trim()) body.internalNotes = internalNotes.trim()
       if (eta.trim()) body.eta = eta.trim()
       await api.patch(`/requests/${id}/status`, body)
       setStatusMsg(`${status} / ${STATUS_ES[status]}`)
-      setNotes('')
+      setCustomerNotes('')
+      setInternalNotes('')
       setEta('')
       await loadSR()
       setTimeout(() => setStatusMsg(''), 3000)
@@ -78,16 +82,19 @@ export default function SRDetail() {
   }
 
   async function handleComplete() {
-    if (!completeNotes.trim()) {
+    if (!completeCustomerNotes.trim()) {
       setCompleteError(`${L.notesRequired[0]} / ${L.notesRequired[1]}`)
       return
     }
     setUpdating(true)
     setCompleteError('')
     try {
-      await api.patch(`/requests/${id}/status`, { status: 'Complete', notes: completeNotes.trim() })
+      const body = { status: 'Complete', customerNotes: completeCustomerNotes.trim() }
+      if (completeInternalNotes.trim()) body.internalNotes = completeInternalNotes.trim()
+      await api.patch(`/requests/${id}/status`, body)
       setShowComplete(false)
-      setCompleteNotes('')
+      setCompleteCustomerNotes('')
+      setCompleteInternalNotes('')
       setStatusMsg('Complete / Completado')
       await loadSR()
     } catch (err) {
@@ -179,15 +186,39 @@ export default function SRDetail() {
 
       {/* Notes + ETA */}
       {!isComplete && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
           <h3 className="font-bold text-gray-900">{L.addNotes[0]} <span className="text-sm font-normal text-gray-500">/ {L.addNotes[1]}</span></h3>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder={`${L.notesPlaceholder[0]}\n${L.notesPlaceholder[1]}`}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
-          />
+
+          {/* Customer Update — sent to customer */}
+          <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-3">
+            <label className="block text-sm font-bold text-blue-900 mb-1">
+              📱 Customer Update / Actualización al Cliente
+            </label>
+            <p className="text-xs text-blue-700 mb-2">Sent to customer / Enviado al cliente</p>
+            <textarea
+              value={customerNotes}
+              onChange={e => setCustomerNotes(e.target.value)}
+              placeholder="Message to include in customer notification / Mensaje para incluir en notificación"
+              rows={3}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+            />
+          </div>
+
+          {/* Internal Notes — office only */}
+          <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-3">
+            <label className="block text-sm font-bold text-gray-800 mb-1">
+              🔒 Internal Notes / Notas Internas
+            </label>
+            <p className="text-xs text-gray-600 mb-2">Office use only / Solo para uso interno</p>
+            <textarea
+              value={internalNotes}
+              onChange={e => setInternalNotes(e.target.value)}
+              placeholder="Notes for office use only / Notas solo para uso interno"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+            />
+          </div>
+
           <input
             type="text"
             value={eta}
@@ -250,17 +281,32 @@ export default function SRDetail() {
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{completeError}</div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {L.notesLabel[0]} / {L.notesLabel[1]} <span className="text-red-500">*</span>
+            <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-3">
+              <label className="block text-sm font-bold text-blue-900 mb-1">
+                📱 Customer Update / Actualización al Cliente <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-blue-700 mb-2">Sent to customer / Enviado al cliente</p>
               <textarea
-                value={completeNotes}
-                onChange={e => setCompleteNotes(e.target.value)}
-                placeholder={`${L.notesHint[0]}\n${L.notesHint[1]}`}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+                value={completeCustomerNotes}
+                onChange={e => setCompleteCustomerNotes(e.target.value)}
+                placeholder="Summary of work completed / Resumen del trabajo realizado"
+                rows={3}
+                className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
                 autoFocus
+              />
+            </div>
+
+            <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-3">
+              <label className="block text-sm font-bold text-gray-800 mb-1">
+                🔒 Internal Notes / Notas Internas
+              </label>
+              <p className="text-xs text-gray-600 mb-2">Office use only — optional / Solo para uso interno — opcional</p>
+              <textarea
+                value={completeInternalNotes}
+                onChange={e => setCompleteInternalNotes(e.target.value)}
+                placeholder="Notes for office use only / Notas solo para uso interno"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
               />
             </div>
 
@@ -274,7 +320,7 @@ export default function SRDetail() {
               </button>
               <button
                 onClick={handleComplete}
-                disabled={updating || !completeNotes.trim()}
+                disabled={updating || !completeCustomerNotes.trim()}
                 className="flex-1 min-h-[52px] rounded-xl bg-[#E31837] text-white font-bold text-base active:bg-[#c21530] disabled:opacity-50 transition-colors"
               >
                 <div>{updating ? L.completing[0] : L.confirmComplete[0]}</div>

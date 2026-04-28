@@ -84,7 +84,7 @@ router.get('/:id', async (req, res) => {
 // PATCH /api/requests/:id/status — update status
 router.patch('/:id/status', async (req, res) => {
   try {
-    const { status, notes, eta, scheduledDate, unitNumber } = req.body;
+    const { status, notes, internalNotes, customerNotes, eta, scheduledDate, unitNumber } = req.body;
     const { role, name } = req.user;
 
     if (!status) {
@@ -97,6 +97,12 @@ router.patch('/:id/status', async (req, res) => {
 
     if (!canRoleSetStatus(role, status)) {
       return res.status(403).json({ error: `Role ${role} cannot set status to ${status}` });
+    }
+
+    // Customer-facing note required on Mark Complete
+    const customerNotesRaw = (customerNotes !== undefined ? customerNotes : notes) || '';
+    if (status === STATUSES.COMPLETE && !customerNotesRaw.trim()) {
+      return res.status(400).json({ error: 'Customer Update is required when marking Complete' });
     }
 
     // Check SR exists
@@ -119,14 +125,23 @@ router.patch('/:id/status', async (req, res) => {
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
 
-    // Process notes — translate Spanish to English if detected
-    if (notes) {
-      const translated = await processNotes(notes);
+    // Process customer-facing notes (Tech_Notes column) — translate ES→EN if detected
+    if (customerNotesRaw && customerNotesRaw.trim()) {
+      const translated = await processNotes(customerNotesRaw.trim());
       updates.Tech_Notes = sr.Tech_Notes ? `${sr.Tech_Notes}\n${translated.text}` : translated.text;
-      // Save original Spanish to separate column if translated
       if (translated.original) {
         const prev = sr.Tech_Notes_Original || '';
         updates.Tech_Notes_Original = prev ? `${prev}\n${translated.original}` : translated.original;
+      }
+    }
+
+    // Process internal notes (Internal_Notes column) — translate ES→EN if detected
+    if (internalNotes && internalNotes.trim()) {
+      const translated = await processNotes(internalNotes.trim());
+      updates.Internal_Notes = sr.Internal_Notes ? `${sr.Internal_Notes}\n${translated.text}` : translated.text;
+      if (translated.original) {
+        const prev = sr.Internal_Notes_Original || '';
+        updates.Internal_Notes_Original = prev ? `${prev}\n${translated.original}` : translated.original;
       }
     }
 
@@ -144,7 +159,7 @@ router.patch('/:id/status', async (req, res) => {
     const notifyResult = await fireNotifications(updatedSr, status);
 
     // Build notes with rating token if COMPLETE
-    let historyNotes = notes || '';
+    let historyNotes = customerNotesRaw || '';
     if (notifyResult.ratingToken) {
       historyNotes = historyNotes
         ? `${historyNotes} | RATING_TOKEN:${notifyResult.ratingToken}`

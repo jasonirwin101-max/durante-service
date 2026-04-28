@@ -365,17 +365,22 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           </button>
         )}
 
-        {/* Tech Notes */}
+        {/* Customer Update (Tech_Notes — sent to customer) */}
         {sr.Tech_Notes && (
-          <Section title={sr.Tech_Notes_Original ? 'Tech Notes (EN)' : 'Tech Notes'}>
+          <Section title={sr.Tech_Notes_Original ? 'Customer Update (EN)' : 'Customer Update'}>
             <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{sr.Tech_Notes}</pre>
           </Section>
         )}
 
-        {/* Original Spanish Notes */}
         {sr.Tech_Notes_Original && (
-          <Section title="Tech Notes (ES)">
+          <Section title="Customer Update (ES)">
             <pre className="text-sm text-gray-500 italic whitespace-pre-wrap font-sans">{sr.Tech_Notes_Original}</pre>
+          </Section>
+        )}
+
+        {sr.Internal_Notes_Original && (
+          <Section title="Internal Notes (ES)">
+            <pre className="text-sm text-gray-500 italic whitespace-pre-wrap font-sans">{sr.Internal_Notes_Original}</pre>
           </Section>
         )}
 

@@ -235,6 +235,16 @@ function loadInternalTemplate() {
   }
 }
 
+function loadNewRequestTemplate() {
+  const filePath = path.join(__dirname, '..', 'templates', 'emails', 'internal_new_request.html');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error('Failed to load internal_new_request.html:', err.message);
+    return null;
+  }
+}
+
 function buildPhotoHtml(sr) {
   const photos = [sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].filter(
     p => p && p.startsWith('http')
@@ -421,16 +431,31 @@ async function fireNotifications(sr, status) {
   result.smsSent = custRes.smsSent || submRes.smsSent;
   result.emailSent = custRes.emailSent || submRes.emailSent;
 
-  // Service team email on RECEIVED only — uses customer-facing template
+  // Service team email on RECEIVED only — internal alert with full details
   if (status === 'Received') {
-    const html = loadEmailTemplate('Received');
+    const html = loadNewRequestTemplate();
     if (html) {
-      const rendered = renderTemplate(html, sr);
-      const subject = EMAIL_SUBJECTS['Received'](sr);
+      const dashboardUrl = process.env.OFFICE_DASHBOARD_URL
+        ? `${process.env.OFFICE_DASHBOARD_URL}/sr/${sr.SR_ID}`
+        : '';
+      const extras = {
+        '{{SUBMITTED_ON}}': formatTimestampDisplay(sr.Submitted_On),
+        '{{CONTACT_PHONE}}': formatPhoneDisplay(sr.Contact_Phone) || sr.Contact_Phone || '',
+        '{{CONTACT_EMAIL}}': sr.Contact_Email || '',
+        '{{SITE_ADDRESS}}': sr.Site_Address || '',
+        '{{CUSTOMERS_NEED}}': sr.Customers_Need || '',
+        '{{ASSET_NUMBER}}': sr.Asset_Number || '',
+        '{{PROBLEM}}': sr.Problem_Description || '',
+        '{{SUBMITTER_NAME}}': sr.Submitter_Name || '',
+        '{{SUBMITTER_PHONE}}': formatPhoneDisplay(sr.Submitter_Phone) || sr.Submitter_Phone || '',
+        '{{DASHBOARD_URL}}': dashboardUrl,
+      };
+      const rendered = renderTemplate(html, sr, extras);
+      const subject = `New Service Request — ${sr.SR_ID} — ${sr.Company_Name}`;
       sendEmail('service@duranteequip.com', subject, rendered).catch(err =>
         console.error('[Notify] service@ email failed:', err.message)
       );
-      console.log('[Notify] RECEIVED email sent to service@duranteequip.com');
+      console.log('[Notify] RECEIVED internal alert sent to service@duranteequip.com');
     }
   }
 

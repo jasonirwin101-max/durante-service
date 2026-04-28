@@ -17,6 +17,7 @@ const SR_COLS = {
   Rating_Comments: 36,
   Tech_Notes_Original: 37,
   SMS_Consent: 38,
+  Internal_Notes_Original: 39,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);
