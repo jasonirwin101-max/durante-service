@@ -251,6 +251,18 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           )}
         </Section>
 
+        {/* POR Work Order */}
+        <Section title="POR Work Order">
+          <PorWorkOrderSection
+            srId={srId}
+            linkedWoNumber={sr.POR_Work_Order || ''}
+            canEdit={canEdit}
+            onChange={() => { loadDetail(); onUpdate(); }}
+            onError={(m) => showMsg(m, 'error')}
+            onSuccess={(m) => showMsg(m, 'success')}
+          />
+        </Section>
+
         {/* Status Override (Managers only) */}
         {canEdit && <Section title="Update Status">
           <div className="space-y-2">
@@ -470,4 +482,169 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
   })
+}
+
+function PorWorkOrderSection({ srId, linkedWoNumber, canEdit, onChange, onError, onSuccess }) {
+  const [woInput, setWoInput] = useState('')
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [preview, setPreview] = useState(null)
+  const [previewError, setPreviewError] = useState('')
+  const [linkSaving, setLinkSaving] = useState(false)
+  const [unlinkSaving, setUnlinkSaving] = useState(false)
+  const [linkedWo, setLinkedWo] = useState(null)
+  const [linkedLoadError, setLinkedLoadError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    if (!linkedWoNumber) {
+      setLinkedWo(null)
+      setLinkedLoadError('')
+      return
+    }
+    api.get(`/por/workorders/${encodeURIComponent(linkedWoNumber)}`)
+      .then(res => { if (!cancelled) { setLinkedWo(res.data); setLinkedLoadError('') } })
+      .catch(err => {
+        if (cancelled) return
+        setLinkedWo(null)
+        setLinkedLoadError(err.response?.status === 404 ? 'Linked WO not found in POR' : 'Unable to load WO details')
+      })
+    return () => { cancelled = true }
+  }, [linkedWoNumber])
+
+  async function handleLookup() {
+    const id = woInput.trim()
+    if (!id) return
+    setLookupLoading(true)
+    setPreview(null)
+    setPreviewError('')
+    try {
+      const res = await api.get(`/por/workorders/${encodeURIComponent(id)}`)
+      setPreview(res.data)
+    } catch (err) {
+      setPreviewError(err.response?.status === 404
+        ? 'Work order not found in POR'
+        : (err.response?.data?.error || 'POR API unavailable'))
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  async function handleLink() {
+    if (!preview) return
+    setLinkSaving(true)
+    try {
+      const woNumber = preview.Name || preview.Id
+      await api.post('/por/link', { srId, workOrderNumber: woNumber })
+      onSuccess(`Linked WO ${woNumber}`)
+      setWoInput('')
+      setPreview(null)
+      onChange()
+    } catch (err) {
+      onError(err.response?.data?.error || 'Failed to link work order')
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
+  async function handleUnlink() {
+    setUnlinkSaving(true)
+    try {
+      await api.delete(`/por/link/${encodeURIComponent(srId)}`)
+      onSuccess('Unlinked')
+      onChange()
+    } catch (err) {
+      onError(err.response?.data?.error || 'Failed to unlink')
+    } finally {
+      setUnlinkSaving(false)
+    }
+  }
+
+  if (linkedWoNumber) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            ✓ WO Linked: {linkedWoNumber}
+          </span>
+          {canEdit && (
+            <button
+              onClick={handleUnlink}
+              disabled={unlinkSaving}
+              className="text-xs text-gray-500 hover:text-red-600 underline disabled:opacity-50"
+            >
+              {unlinkSaving ? '...' : '× Unlink'}
+            </button>
+          )}
+        </div>
+        {linkedLoadError && <p className="text-xs text-amber-600">{linkedLoadError}</p>}
+        {linkedWo && <WoCard wo={linkedWo} />}
+      </div>
+    )
+  }
+
+  if (!canEdit) {
+    return <p className="text-sm text-gray-400 italic">No POR work order linked</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={woInput}
+          onChange={e => setWoInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleLookup() }}
+          placeholder="Enter Work Order Number"
+          className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+        />
+        <button
+          onClick={handleLookup}
+          disabled={lookupLoading || !woInput.trim()}
+          className="h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+        >
+          {lookupLoading ? '...' : '🔍 Look Up'}
+        </button>
+      </div>
+      {previewError && <p className="text-sm text-red-600">{previewError}</p>}
+      {preview && (
+        <div className="space-y-2">
+          <WoCard wo={preview} />
+          <button
+            onClick={handleLink}
+            disabled={linkSaving}
+            className="w-full h-8 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {linkSaving ? 'Linking...' : 'Link to SR'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WoCard({ wo }) {
+  const number = wo.Name || wo.Id || ''
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded p-3 space-y-1.5 text-sm">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="font-mono text-xs text-gray-500">WO</span>
+        <span className="font-semibold text-gray-900">{number}</span>
+      </div>
+      <WoField label="Reported Issue" value={wo.ReportedIssue} />
+      <WoField label="Complaint" value={wo.Complaint} multiline />
+      <WoField label="Cause" value={wo.Cause} multiline />
+      <WoField label="Correction" value={wo.Correction} multiline />
+      <WoField label="Other Comments" value={wo.OtherComments} multiline />
+    </div>
+  )
+}
+
+function WoField({ label, value, multiline = false }) {
+  if (!value) return null
+  return (
+    <div>
+      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+      <div className={`text-sm text-gray-900 ${multiline ? 'whitespace-pre-wrap' : 'truncate'}`}>{value}</div>
+    </div>
+  )
 }

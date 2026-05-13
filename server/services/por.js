@@ -1,0 +1,52 @@
+const POR_BASE = 'https://api.pointofrental.com/v1/apikey';
+
+function porHeaders() {
+  return {
+    'X-API-Key': process.env.POR_API_KEY,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function getWorkOrders() {
+  const res = await fetch(`${POR_BASE}/workorders`, { headers: porHeaders() });
+  if (!res.ok) throw new Error(`POR API error: ${res.status}`);
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : [];
+  console.log('[POR] Work orders fetched:', list.length);
+  return list;
+}
+
+// Tries POR's direct lookup first (assumes :id accepts the user-facing Name);
+// if that 404s or returns nothing useful, scans the full list and matches by
+// Name then Id. Returns null if not found anywhere.
+async function getWorkOrderById(id) {
+  if (!id) return null;
+  try {
+    const direct = await fetch(
+      `${POR_BASE}/workorders/${encodeURIComponent(id)}`,
+      { headers: porHeaders() }
+    );
+    if (direct.ok) {
+      const data = await direct.json();
+      if (data && (data.Name || data.Id)) return data;
+    }
+  } catch (err) {
+    console.log('[POR] Direct lookup failed:', err.message);
+  }
+  try {
+    const all = await getWorkOrders();
+    const target = String(id).trim().toLowerCase();
+    return (
+      all.find(
+        (wo) =>
+          String(wo.Name || '').trim().toLowerCase() === target ||
+          String(wo.Id || '').trim().toLowerCase() === target
+      ) || null
+    );
+  } catch (err) {
+    console.log('[POR] List-scan fallback failed:', err.message);
+    return null;
+  }
+}
+
+module.exports = { getWorkOrders, getWorkOrderById };

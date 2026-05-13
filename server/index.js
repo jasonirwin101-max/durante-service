@@ -15,6 +15,7 @@ const techRoutes = require('./routes/techs');
 const uploadRoutes = require('./routes/upload');
 const rateRoutes = require('./routes/rate');
 const statsRoutes = require('./routes/stats');
+const porRoutes = require('./routes/por');
 const { startEscalationCron } = require('./cron/escalation');
 const { startDigestCron } = require('./cron/digest');
 
@@ -53,6 +54,7 @@ app.use('/api/techs', techRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/rate', publicLimiter, rateRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/por', porRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

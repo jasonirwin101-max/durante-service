@@ -232,6 +232,9 @@ export default function Dashboard() {
         <TabBtn active={activeTab === 'completed'} onClick={() => { setActiveTab('completed'); setSelectedSR(null); }}>
           Completed Requests <span className="ml-1 text-xs text-gray-500">({completed.length})</span>
         </TabBtn>
+        <TabBtn active={activeTab === 'por'} onClick={() => { setActiveTab('por'); setSelectedSR(null); }}>
+          POR Work Orders
+        </TabBtn>
       </div>
 
       {/* Refresh / last-updated bar */}
@@ -315,6 +318,8 @@ export default function Dashboard() {
           handleSRUpdate={handleSRUpdate}
         />
       )}
+
+      {activeTab === 'por' && <PorWorkOrdersView />}
     </div>
   )
 }
@@ -391,6 +396,7 @@ function ActiveView({
                       <SortTh col="Equipment_Description" label="Equipment" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="Current_Status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="Assigned_Tech" label="Tech" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">WO</th>
                       <SortTh col="Submitted_On" label="Age" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
                     </tr>
@@ -431,6 +437,16 @@ function ActiveView({
                             )}
                           </td>
                           <td className="px-3 py-2 whitespace-nowrap">{sr.Assigned_Tech || <span className={isReceived ? 'font-bold' : 'text-gray-400 italic'}>Unassigned</span>}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {sr.POR_Work_Order ? (
+                              <span
+                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700"
+                                title={`POR ${sr.POR_Work_Order}`}
+                              >
+                                WO Linked
+                              </span>
+                            ) : null}
+                          </td>
                           <td className="px-3 py-2 whitespace-nowrap">
                             <span className={isReceived ? 'font-bold' : `font-medium ${days >= 4 ? 'text-red-600' : days >= 2 ? 'text-yellow-600' : 'text-green-600'}`}>
                               {days}d
@@ -573,6 +589,163 @@ function CompletedView({
         )}
       </div>
     </>
+  )
+}
+
+function PorWorkOrdersView() {
+  const [workOrders, setWorkOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function load() {
+    setRefreshing(true)
+    setError('')
+    try {
+      const res = await api.get('/por/workorders')
+      setWorkOrders(Array.isArray(res.data) ? res.data : [])
+      setLastUpdated(new Date())
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'POR API unavailable')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    const id = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-3">
+        <div className="text-sm text-gray-500">
+          {workOrders.length} work order{workOrders.length === 1 ? '' : 's'}
+        </div>
+        <div className="flex-1" />
+        {lastUpdated && (
+          <span className="text-xs text-gray-500">
+            Last updated: {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </span>
+        )}
+        <button
+          onClick={load}
+          disabled={refreshing}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60"
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          Unable to load POR work orders — {error}
+        </div>
+      )}
+
+      <div className="flex gap-4">
+        <div className={`${selected ? 'w-1/2' : 'w-full'} transition-all`}>
+          {loading ? (
+            <div className="text-center text-gray-500 py-12">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-[#E31837]" />
+              <div className="mt-2 text-sm">Loading work orders…</div>
+            </div>
+          ) : workOrders.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No work orders</div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">WO #</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reported Issue</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cause</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Correction</th>
+                      <th className="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workOrders.map((wo, i) => {
+                      const id = wo.Name || wo.Id || `row-${i}`
+                      const isSel = selected && ((wo.Name && selected.Name === wo.Name) || (wo.Id && selected.Id === wo.Id))
+                      return (
+                        <tr
+                          key={id}
+                          onClick={() => setSelected(wo)}
+                          className={`cursor-pointer border-b border-gray-100 ${
+                            isSel ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{wo.Name || ''}</td>
+                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.ReportedIssue || ''}</td>
+                          <td className="px-3 py-2 max-w-[260px] truncate">{(wo.Complaint || '').substring(0, 100)}</td>
+                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.Cause || ''}</td>
+                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.Correction || ''}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-right">
+                            <span className="text-[#E31837] text-xs font-medium">View →</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {selected && (
+          <div className="w-1/2">
+            <PorWoDetailPanel wo={selected} onClose={() => setSelected(null)} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PorWoDetailPanel({ wo, onClose }) {
+  const number = wo.Name || wo.Id || ''
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden max-h-[calc(100vh-160px)] overflow-y-auto">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+        <div>
+          <span className="text-xs text-gray-500">POR Work Order</span>
+          <span className="ml-2 font-semibold">{number}</span>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1" title="Close">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="p-4 space-y-3 text-sm">
+        <PorField label="Work Order #" value={wo.Name} />
+        <PorField label="Reported Issue" value={wo.ReportedIssue} multiline />
+        <PorField label="Complaint" value={wo.Complaint} multiline />
+        <PorField label="Cause" value={wo.Cause} multiline />
+        <PorField label="Correction" value={wo.Correction} multiline />
+        <PorField label="Other Comments" value={wo.OtherComments} multiline />
+      </div>
+    </div>
+  )
+}
+
+function PorField({ label, value, multiline = false }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">{label}</div>
+      <div className={`text-sm text-gray-900 ${multiline ? 'whitespace-pre-wrap' : ''}`}>
+        {value || <span className="text-gray-400 italic">—</span>}
+      </div>
+    </div>
   )
 }
 
