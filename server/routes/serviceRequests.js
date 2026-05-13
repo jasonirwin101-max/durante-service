@@ -14,9 +14,11 @@ const CLOCK_RESUME_STATUSES = new Set(['Dispatched', 'On Site']);
 
 function formatTotalTime(totalSec) {
   const sec = Math.max(0, Math.floor(totalSec || 0));
+  if (sec < 60) return `${sec}s`;
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const s = sec % 60;
+  return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
 }
 
 // Compute clock-field updates for a status change. Returns an object of
