@@ -447,7 +447,7 @@ async function sendServiceTimeReport(sr) {
   if (!html) return false;
 
   const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
-  const recipients = ['service@duranteequip.com', 'azunic@duranteequip.com'];
+  const recipients = ['service@duranteequip.com'];
   if (submitterEmail && !recipients.includes(submitterEmail)) recipients.push(submitterEmail);
 
   const techNotes = stripTimestamps(sr.Tech_Notes || '');
