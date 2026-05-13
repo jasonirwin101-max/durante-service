@@ -54,11 +54,25 @@ export default function App() {
   }
 
   function handlePhotos(e) {
-    const files = Array.from(e.target.files).slice(0, 4)
-    setPhotos(files)
-    // Generate previews
-    const urls = files.map(f => URL.createObjectURL(f))
-    setPreviews(prev => { prev.forEach(u => URL.revokeObjectURL(u)); return urls })
+    const newFiles = Array.from(e.target.files)
+    if (newFiles.length === 0) return
+    const room = Math.max(0, 4 - photos.length)
+    if (newFiles.length > room) {
+      alert('Maximum 4 photos allowed')
+    }
+    const toAdd = newFiles.slice(0, room)
+    if (toAdd.length === 0) { e.target.value = ''; return }
+    setPhotos(prev => [...prev, ...toAdd])
+    const newUrls = toAdd.map(f => URL.createObjectURL(f))
+    setPreviews(prev => [...prev, ...newUrls])
+    e.target.value = ''
+  }
+
+  function fmtBytes(bytes) {
+    if (!bytes) return ''
+    const kb = bytes / 1024
+    if (kb < 1024) return `${kb.toFixed(0)} KB`
+    return `${(kb / 1024).toFixed(1)} MB`
   }
 
   function removePhoto(index) {
@@ -242,14 +256,16 @@ export default function App() {
           {/* Photos */}
           <FormSection title="Photos (Optional)">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Upload up to 4 photos</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Add Photos (up to 4) / Agregar Fotos (hasta 4)</label>
               <input
                 type="file"
                 accept="image/*"
                 multiple
                 onChange={handlePhotos}
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#E31837] file:text-white hover:file:bg-[#c21530] file:cursor-pointer file:transition-colors"
+                disabled={photos.length >= 4}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#E31837] file:text-white hover:file:bg-[#c21530] file:cursor-pointer file:transition-colors disabled:opacity-50 disabled:file:cursor-not-allowed"
               />
+              <p className="text-xs text-gray-500 mt-1">{photos.length} of 4 photos selected</p>
               {previews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
                   {previews.map((url, i) => (
@@ -262,7 +278,8 @@ export default function App() {
                       >
                         X
                       </button>
-                      <p className="text-[10px] text-gray-400 truncate mt-0.5">{photos[i]?.name}</p>
+                      <p className="text-[10px] text-gray-700 truncate mt-0.5">{photos[i]?.name}</p>
+                      <p className="text-[10px] text-gray-400">{fmtBytes(photos[i]?.size)}</p>
                     </div>
                   ))}
                 </div>
