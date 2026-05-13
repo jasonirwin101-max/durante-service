@@ -319,7 +319,7 @@ export default function Dashboard() {
         />
       )}
 
-      {activeTab === 'por' && <PorWorkOrdersView />}
+      {activeTab === 'por' && <PorWorkOrdersView requests={requests} onLink={handleSRUpdate} />}
     </div>
   )
 }
@@ -592,157 +592,169 @@ function CompletedView({
   )
 }
 
-function PorWorkOrdersView() {
-  const [workOrders, setWorkOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+function PorWorkOrdersView({ requests = [], onLink }) {
+  const [woInput, setWoInput] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [result, setResult] = useState(null)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('open')
+  const [showSrPicker, setShowSrPicker] = useState(false)
+  const [selectedSrId, setSelectedSrId] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkedToSr, setLinkedToSr] = useState('')
 
-  async function load(filter = statusFilter) {
-    setRefreshing(true)
+  async function handleLookup() {
+    const id = woInput.trim()
+    if (!id) return
+    setSearching(true)
+    setResult(null)
     setError('')
+    setShowSrPicker(false)
+    setSelectedSrId('')
+    setLinkedToSr('')
     try {
-      const res = await api.get(`/por/workorders?status=${encodeURIComponent(filter)}`)
-      setWorkOrders(Array.isArray(res.data) ? res.data : [])
-      setLastUpdated(new Date())
+      const res = await api.get(`/por/workorders/${encodeURIComponent(id)}`)
+      setResult(res.data)
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'POR API unavailable')
+      if (err.response?.status === 404) {
+        setError('Work Order not found. Please check the number.')
+      } else {
+        setError(err.response?.data?.error || 'POR API unavailable')
+      }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setSearching(false)
     }
   }
 
-  useEffect(() => {
-    load(statusFilter)
-    const id = setInterval(() => load(statusFilter), 5 * 60 * 1000)
-    return () => clearInterval(id)
-  }, [statusFilter])
+  async function handleLink() {
+    if (!selectedSrId || !result) return
+    setLinking(true)
+    setError('')
+    try {
+      const woNumber = result.Name || result.Id
+      await api.post('/por/link', { srId: selectedSrId, workOrderNumber: woNumber })
+      setLinkedToSr(selectedSrId)
+      setShowSrPicker(false)
+      if (onLink) onLink()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to link work order')
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  function resetAll() {
+    setWoInput('')
+    setResult(null)
+    setError('')
+    setShowSrPicker(false)
+    setSelectedSrId('')
+    setLinkedToSr('')
+  }
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-3">
-        <div className="text-sm text-gray-500">
-          {workOrders.length} work order{workOrders.length === 1 ? '' : 's'}
+    <div className="max-w-3xl">
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+          Look Up POR Work Order
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={woInput}
+            onChange={e => setWoInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleLookup() }}
+            placeholder="Enter Work Order Number..."
+            className="flex-1 h-9 px-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#E31837] outline-none"
+          />
+          <button
+            onClick={handleLookup}
+            disabled={searching || !woInput.trim()}
+            className="h-9 px-4 text-sm font-medium text-white bg-[#E31837] rounded-lg hover:bg-[#c21530] disabled:opacity-50"
+          >
+            {searching ? 'Searching…' : '🔍 Look Up'}
+          </button>
+          {(result || error || linkedToSr) && (
+            <button
+              onClick={resetAll}
+              className="h-9 px-3 text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
-        >
-          <option value="open">Open only</option>
-          <option value="all">All statuses</option>
-        </select>
-        <div className="flex-1" />
-        {lastUpdated && (
-          <span className="text-xs text-gray-500">
-            Last updated: {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </span>
-        )}
-        <button
-          onClick={() => load(statusFilter)}
-          disabled={refreshing}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60"
-        >
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
       </div>
 
       {error && (
-        <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-          Unable to load POR work orders — {error}
+        <div className="mt-3 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          {error}
         </div>
       )}
 
-      <div className="flex gap-4">
-        <div className={`${selected ? 'w-1/2' : 'w-full'} transition-all`}>
-          {loading ? (
-            <div className="text-center text-gray-500 py-12">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-[#E31837]" />
-              <div className="mt-2 text-sm">Loading work orders…</div>
+      {linkedToSr && (
+        <div className="mt-3 px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg font-medium">
+          ✓ Linked to {linkedToSr}
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-3 bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-gray-500 uppercase">POR Work Order</span>
+              <span className="ml-2 font-semibold text-gray-900">{result.Name || result.Id}</span>
             </div>
-          ) : workOrders.length === 0 ? (
-            <div className="text-center text-gray-500 py-12">No work orders</div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">WO #</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reported Issue</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cause</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Correction</th>
-                      <th className="px-3 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workOrders.map((wo, i) => {
-                      const id = wo.Name || wo.Id || `row-${i}`
-                      const isSel = selected && ((wo.Name && selected.Name === wo.Name) || (wo.Id && selected.Id === wo.Id))
-                      return (
-                        <tr
-                          key={id}
-                          onClick={() => setSelected(wo)}
-                          className={`cursor-pointer border-b border-gray-100 ${
-                            isSel ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{wo.Name || ''}</td>
-                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.ReportedIssue || ''}</td>
-                          <td className="px-3 py-2 max-w-[260px] truncate">{(wo.Complaint || '').substring(0, 100)}</td>
-                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.Cause || ''}</td>
-                          <td className="px-3 py-2 max-w-[180px] truncate">{wo.Correction || ''}</td>
-                          <td className="px-3 py-2 whitespace-nowrap text-right">
-                            <span className="text-[#E31837] text-xs font-medium">View →</span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+          </div>
+          <PorField label="Reported Issue" value={result.ReportedIssue} />
+          <PorField label="Complaint" value={result.Complaint} multiline />
+          <PorField label="Cause" value={result.Cause} multiline />
+          <PorField label="Correction" value={result.Correction} multiline />
+          <PorField label="Other Comments" value={result.OtherComments} multiline />
+
+          {!linkedToSr && !showSrPicker && (
+            <button
+              onClick={() => setShowSrPicker(true)}
+              className="w-full h-9 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+            >
+              Link to Service Request
+            </button>
+          )}
+
+          {showSrPicker && !linkedToSr && (
+            <div className="space-y-2 pt-2 border-t border-gray-200">
+              <label className="block text-xs font-semibold text-gray-500 uppercase">
+                Select Active Service Request
+              </label>
+              <select
+                value={selectedSrId}
+                onChange={e => setSelectedSrId(e.target.value)}
+                className="w-full h-9 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+              >
+                <option value="">Choose an active SR…</option>
+                {requests.map(sr => (
+                  <option key={sr.SR_ID} value={sr.SR_ID}>
+                    {sr.SR_ID} — {sr.Company_Name}{sr.Equipment_Description ? ` (${sr.Equipment_Description})` : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLink}
+                  disabled={linking || !selectedSrId}
+                  className="flex-1 h-9 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {linking ? 'Linking…' : 'Confirm Link'}
+                </button>
+                <button
+                  onClick={() => { setShowSrPicker(false); setSelectedSrId('') }}
+                  className="px-4 h-9 text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}
         </div>
-
-        {selected && (
-          <div className="w-1/2">
-            <PorWoDetailPanel wo={selected} onClose={() => setSelected(null)} />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function PorWoDetailPanel({ wo, onClose }) {
-  const number = wo.Name || wo.Id || ''
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden max-h-[calc(100vh-160px)] overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
-        <div>
-          <span className="text-xs text-gray-500">POR Work Order</span>
-          <span className="ml-2 font-semibold">{number}</span>
-        </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1" title="Close">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      <div className="p-4 space-y-3 text-sm">
-        <PorField label="Work Order #" value={wo.Name} />
-        <PorField label="Reported Issue" value={wo.ReportedIssue} multiline />
-        <PorField label="Complaint" value={wo.Complaint} multiline />
-        <PorField label="Cause" value={wo.Cause} multiline />
-        <PorField label="Correction" value={wo.Correction} multiline />
-        <PorField label="Other Comments" value={wo.OtherComments} multiline />
-      </div>
+      )}
     </div>
   )
 }
