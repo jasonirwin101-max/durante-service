@@ -19,6 +19,11 @@ const SR_COLS = {
   SMS_Consent: 38,
   Internal_Notes_Original: 39,
   POR_Work_Order: 40,
+  Clock_Start: 41,
+  Clock_Paused_At: 42,
+  Clock_Total_Seconds: 43,
+  Clock_Status: 44,
+  Total_Service_Time: 45,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);

@@ -166,6 +166,9 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           </div>
         )}
 
+        {/* Service Time Clock */}
+        <ClockSection sr={sr} />
+
         {/* Customer Info */}
         <Section title="Customer">
           <Row label="Company" value={sr.Company_Name} />
@@ -482,6 +485,56 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
   })
+}
+
+function fmtClockHMS(sec) {
+  const s = Math.max(0, Math.floor(sec || 0))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const r = s % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
+}
+
+function ClockSection({ sr }) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (sr?.Clock_Status !== 'running') return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [sr?.Clock_Status, sr?.Clock_Start])
+
+  const status = sr?.Clock_Status || ''
+  if (!status) return null
+
+  const totalSec = parseInt(sr.Clock_Total_Seconds || '0', 10) || 0
+  let displaySec = totalSec
+  if (status === 'running' && sr.Clock_Start) {
+    const elapsed = Math.max(0, Math.floor((now - new Date(sr.Clock_Start).getTime()) / 1000))
+    displaySec = totalSec + elapsed
+  }
+
+  const badge = status === 'running'
+    ? { label: 'Running', cls: 'bg-green-100 text-green-700' }
+    : status === 'paused'
+      ? { label: 'Paused', cls: 'bg-amber-100 text-amber-700' }
+      : { label: 'Stopped', cls: 'bg-gray-100 text-gray-700' }
+
+  const totalDisplay = status === 'stopped'
+    ? (sr.Total_Service_Time || fmtClockHMS(displaySec))
+    : fmtClockHMS(displaySec)
+
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Service Time</h4>
+      <div className="flex items-center gap-3">
+        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="font-mono text-lg font-semibold text-gray-900 tabular-nums">{totalDisplay}</span>
+      </div>
+    </div>
+  )
 }
 
 function PorWorkOrderSection({ srId, linkedWoNumber, canEdit, onChange, onError, onSuccess }) {

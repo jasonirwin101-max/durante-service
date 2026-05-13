@@ -136,6 +136,8 @@ export default function SRDetail() {
         </div>
       </div>
 
+      <ClockDisplay sr={sr} />
+
       {statusMsg && (
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg font-medium">{statusMsg}</div>
       )}
@@ -377,4 +379,57 @@ function BiRow({ en, es, value, link }) {
 function formatTime(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+function fmtHMS(sec) {
+  const s = Math.max(0, Math.floor(sec || 0))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const r = s % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
+}
+
+function ClockDisplay({ sr }) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (sr?.Clock_Status !== 'running') return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [sr?.Clock_Status, sr?.Clock_Start])
+
+  if (!sr) return null
+  const status = sr.Clock_Status || ''
+  if (!status) return null
+
+  const totalSec = parseInt(sr.Clock_Total_Seconds || '0', 10) || 0
+  let displaySec = totalSec
+  if (status === 'running' && sr.Clock_Start) {
+    const elapsed = Math.max(0, Math.floor((now - new Date(sr.Clock_Start).getTime()) / 1000))
+    displaySec = totalSec + elapsed
+  }
+
+  if (status === 'running') {
+    return (
+      <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4">
+        <div className="text-xs font-bold text-green-700 uppercase tracking-wide">⏱ Time on Job / Tiempo en el Trabajo</div>
+        <div className="text-3xl font-mono font-bold text-green-800 tabular-nums mt-1">{fmtHMS(displaySec)}</div>
+      </div>
+    )
+  }
+  if (status === 'paused') {
+    return (
+      <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4">
+        <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">⏸ Paused / Pausado</div>
+        <div className="text-3xl font-mono font-bold text-amber-800 tabular-nums mt-1">{fmtHMS(displaySec)}</div>
+      </div>
+    )
+  }
+  // stopped
+  return (
+    <div className="bg-gray-50 border-2 border-gray-300 rounded-xl p-4">
+      <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">✓ Completed / Completado</div>
+      <div className="text-2xl font-bold text-gray-800 mt-1">Total: {sr.Total_Service_Time || fmtHMS(displaySec)}</div>
+    </div>
+  )
 }

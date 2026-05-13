@@ -432,6 +432,62 @@ async function sendSubmitterNotification(sr, status) {
   return out;
 }
 
+function loadServiceTimeTemplate() {
+  const filePath = path.join(__dirname, '..', 'templates', 'emails', 'service_time_report.html');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error('Failed to load service_time_report.html:', err.message);
+    return null;
+  }
+}
+
+async function sendServiceTimeReport(sr) {
+  const html = loadServiceTimeTemplate();
+  if (!html) return false;
+
+  const submitterEmail = deriveSubmitterEmail(sr.Submitter_Name);
+  const recipients = ['service@duranteequip.com', 'azunic@duranteequip.com'];
+  if (submitterEmail && !recipients.includes(submitterEmail)) recipients.push(submitterEmail);
+
+  const techNotes = stripTimestamps(sr.Tech_Notes || '');
+  const techNotesBlock = techNotes
+    ? `<div style="margin:20px 0;padding:14px 18px;background-color:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;">
+         <div style="font-size:11px;font-weight:bold;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Customer Update</div>
+         <div style="font-size:14px;color:#78350F;line-height:1.5;">${escapeHtml(techNotes).replace(/\n/g, '<br>')}</div>
+       </div>`
+    : '';
+
+  const internal = stripTimestamps(sr.Internal_Notes || '');
+  const internalBlock = internal
+    ? `<div style="margin:20px 0;padding:14px 18px;background-color:#F3F4F6;border-left:4px solid #6B7280;border-radius:4px;">
+         <div style="font-size:11px;font-weight:bold;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Internal Notes</div>
+         <div style="font-size:14px;color:#1F2937;line-height:1.5;">${escapeHtml(internal).replace(/\n/g, '<br>')}</div>
+       </div>`
+    : '';
+
+  const extras = {
+    '{{TOTAL_SERVICE_TIME}}': sr.Total_Service_Time || '0m',
+    '{{TIME_DISPATCHED}}': formatTimestampDisplay(sr.Clock_Start),
+    '{{ASSIGNED_TECH}}': sr.Assigned_Tech || 'Unassigned',
+    '{{SITE_ADDRESS}}': sr.Site_Address || '',
+    '{{TECH_NOTES_BLOCK}}': techNotesBlock,
+    '{{INTERNAL_NOTES_BLOCK}}': internalBlock,
+  };
+
+  const rendered = renderTemplate(html, sr, extras);
+  const subject = `Service Complete — ${sr.SR_ID} — ${sr.Company_Name} — Time: ${sr.Total_Service_Time || '0m'}`;
+
+  const results = await Promise.all(recipients.map(to =>
+    sendEmail(to, subject, rendered).catch(err => {
+      console.error(`[ServiceTime] email failed to ${to}:`, err.message);
+      return false;
+    })
+  ));
+  console.log(`[ServiceTime] report sent to ${recipients.length} recipients:`, recipients.join(','));
+  return results.some(Boolean);
+}
+
 async function fireNotifications(sr, status, currentNotes = {}) {
   const result = {
     customerNotified: false,
@@ -492,6 +548,14 @@ async function fireNotifications(sr, status, currentNotes = {}) {
       );
       console.log('[Notify] RECEIVED internal alert sent to service@duranteequip.com');
     }
+  }
+
+  // Internal time-report email on COMPLETE — to service@, azunic@, and submitter.
+  // Fire-and-forget so this never blocks the status response.
+  if (status === 'Complete') {
+    sendServiceTimeReport(sr).catch(err =>
+      console.error('[ServiceTime] report failed:', err.message)
+    );
   }
 
   console.log(`Notifications fired for ${sr.SR_ID} → ${status}:`, result);

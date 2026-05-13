@@ -10,6 +10,58 @@ const router = express.Router();
 // All routes below require authentication
 router.use(authMiddleware);
 
+const CLOCK_RESUME_STATUSES = new Set(['Dispatched', 'On Site']);
+
+function formatTotalTime(totalSec) {
+  const sec = Math.max(0, Math.floor(totalSec || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Compute clock-field updates for a status change. Returns an object of
+// fields to merge into the sheet update batch. Defensive: never restarts a
+// running clock, never adds elapsed when not running, handles Complete-while-
+// paused correctly (no extra elapsed window to add).
+function computeClockUpdates(sr, status, nowIso, srId) {
+  const updates = {};
+  const clockStatus = sr.Clock_Status || '';
+  const clockTotalSec = parseInt(sr.Clock_Total_Seconds || '0', 10) || 0;
+  const clockStartIso = sr.Clock_Start || '';
+
+  if (CLOCK_RESUME_STATUSES.has(status)) {
+    if (clockStatus === '' || clockStatus === 'paused') {
+      updates.Clock_Start = nowIso;
+      updates.Clock_Status = 'running';
+      updates.Clock_Paused_At = '';
+      console.log(`[CLOCK] ${clockStatus === 'paused' ? 'Resumed' : 'Started'} for SR: ${srId}`);
+    }
+    // Already running → no-op (preserve segment start)
+  } else if (status === STATUSES.LEFT_SITE) {
+    if (clockStatus === 'running' && clockStartIso) {
+      const elapsed = Math.floor((Date.now() - new Date(clockStartIso).getTime()) / 1000);
+      const newTotal = clockTotalSec + Math.max(0, elapsed);
+      updates.Clock_Total_Seconds = String(newTotal);
+      updates.Clock_Paused_At = nowIso;
+      updates.Clock_Status = 'paused';
+      console.log(`[CLOCK] Paused for SR: ${srId}, total so far: ${newTotal}s`);
+    }
+    // Not running → no-op
+  } else if (status === STATUSES.COMPLETE) {
+    let finalTotal = clockTotalSec;
+    if (clockStatus === 'running' && clockStartIso) {
+      const elapsed = Math.floor((Date.now() - new Date(clockStartIso).getTime()) / 1000);
+      finalTotal = clockTotalSec + Math.max(0, elapsed);
+    }
+    updates.Clock_Total_Seconds = String(finalTotal);
+    updates.Clock_Status = 'stopped';
+    updates.Total_Service_Time = formatTotalTime(finalTotal);
+    console.log(`[CLOCK] Stopped for SR: ${srId}, total: ${updates.Total_Service_Time}`);
+  }
+
+  return updates;
+}
+
 function formatNoteDateTime(iso) {
   const d = iso instanceof Date ? iso : new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -136,6 +188,8 @@ router.patch('/:id/status', async (req, res) => {
     }
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
+
+    Object.assign(updates, computeClockUpdates(sr, status, now, req.params.id));
 
     const stamp = formatNoteDateTime(now);
 
