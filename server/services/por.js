@@ -7,13 +7,36 @@ function porHeaders() {
   };
 }
 
-async function getWorkOrders() {
+// Status strings POR (or rental systems generally) might use for finished WOs.
+// Compared case-insensitively. If a WO's Status is missing/empty we keep it
+// visible — defensive against the field being absent entirely.
+const CLOSED_STATUSES = new Set([
+  'closed', 'complete', 'completed', 'cancelled', 'canceled', 'done', 'finished',
+]);
+
+async function getWorkOrders({ status = 'open' } = {}) {
   const res = await fetch(`${POR_BASE}/workorders`, { headers: porHeaders() });
   if (!res.ok) throw new Error(`POR API error: ${res.status}`);
   const data = await res.json();
   const list = Array.isArray(data) ? data : [];
-  console.log('[POR] Work orders fetched:', list.length);
-  return list;
+
+  if (list.length > 0) {
+    const uniqueStatuses = [...new Set(list.map((wo) => wo.Status))];
+    console.log('[POR] Unique statuses:', JSON.stringify(uniqueStatuses));
+    console.log('[POR] Sample WO fields:', Object.keys(list[0]).join(','));
+  }
+
+  let filtered = list;
+  if (status === 'open') {
+    filtered = list.filter((wo) => {
+      const s = String(wo.Status || '').trim().toLowerCase();
+      if (!s) return true;
+      return !CLOSED_STATUSES.has(s);
+    });
+  }
+
+  console.log('[POR] Work orders fetched:', list.length, 'filter:', status, 'returned:', filtered.length);
+  return filtered;
 }
 
 // Tries POR's direct lookup first (assumes :id accepts the user-facing Name);

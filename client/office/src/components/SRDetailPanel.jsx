@@ -608,7 +608,7 @@ function PorWorkOrderSection({ srId, linkedWoNumber, canEdit, onChange, onError,
       {previewError && <p className="text-sm text-red-600">{previewError}</p>}
       {preview && (
         <div className="space-y-2">
-          <WoCard wo={preview} />
+          <WoCard wo={preview} truncateComplaint />
           <button
             onClick={handleLink}
             disabled={linkSaving}
@@ -622,8 +622,11 @@ function PorWorkOrderSection({ srId, linkedWoNumber, canEdit, onChange, onError,
   )
 }
 
-function WoCard({ wo }) {
+function WoCard({ wo, truncateComplaint = false }) {
   const number = wo.Name || wo.Id || ''
+  const complaint = truncateComplaint && wo.Complaint && wo.Complaint.length > 150
+    ? wo.Complaint.substring(0, 150) + '…'
+    : wo.Complaint
   return (
     <div className="bg-gray-50 border border-gray-200 rounded p-3 space-y-1.5 text-sm">
       <div className="flex items-center gap-2 mb-1">
@@ -631,7 +634,7 @@ function WoCard({ wo }) {
         <span className="font-semibold text-gray-900">{number}</span>
       </div>
       <WoField label="Reported Issue" value={wo.ReportedIssue} />
-      <WoField label="Complaint" value={wo.Complaint} multiline />
+      <WoField label="Complaint" value={complaint} multiline />
       <WoField label="Cause" value={wo.Cause} multiline />
       <WoField label="Correction" value={wo.Correction} multiline />
       <WoField label="Other Comments" value={wo.OtherComments} multiline />

@@ -8,8 +8,9 @@ router.use(authMiddleware);
 
 router.get('/workorders', async (req, res) => {
   try {
-    console.log('[POR] Fetching work orders...');
-    const data = await getWorkOrders();
+    const status = req.query.status === 'all' ? 'all' : 'open';
+    console.log('[POR] Fetching work orders, status filter:', status);
+    const data = await getWorkOrders({ status });
     res.set('Cache-Control', 'no-store');
     res.json(data);
   } catch (err) {

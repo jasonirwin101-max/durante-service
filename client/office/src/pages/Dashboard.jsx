@@ -396,7 +396,7 @@ function ActiveView({
                       <SortTh col="Equipment_Description" label="Equipment" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="Current_Status" label="Status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="Assigned_Tech" label="Tech" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">WO</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">POR WO</th>
                       <SortTh col="Submitted_On" label="Age" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
                     </tr>
@@ -440,10 +440,10 @@ function ActiveView({
                           <td className="px-3 py-2 whitespace-nowrap">
                             {sr.POR_Work_Order ? (
                               <span
-                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700"
-                                title={`POR ${sr.POR_Work_Order}`}
+                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-blue-100 text-blue-700"
+                                title="POR Work Order linked"
                               >
-                                WO Linked
+                                {sr.POR_Work_Order}
                               </span>
                             ) : null}
                           </td>
@@ -599,12 +599,13 @@ function PorWorkOrdersView() {
   const [selected, setSelected] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('open')
 
-  async function load() {
+  async function load(filter = statusFilter) {
     setRefreshing(true)
     setError('')
     try {
-      const res = await api.get('/por/workorders')
+      const res = await api.get(`/por/workorders?status=${encodeURIComponent(filter)}`)
       setWorkOrders(Array.isArray(res.data) ? res.data : [])
       setLastUpdated(new Date())
     } catch (err) {
@@ -616,10 +617,10 @@ function PorWorkOrdersView() {
   }
 
   useEffect(() => {
-    load()
-    const id = setInterval(load, 5 * 60 * 1000)
+    load(statusFilter)
+    const id = setInterval(() => load(statusFilter), 5 * 60 * 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [statusFilter])
 
   return (
     <div>
@@ -627,6 +628,14 @@ function PorWorkOrdersView() {
         <div className="text-sm text-gray-500">
           {workOrders.length} work order{workOrders.length === 1 ? '' : 's'}
         </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+        >
+          <option value="open">Open only</option>
+          <option value="all">All statuses</option>
+        </select>
         <div className="flex-1" />
         {lastUpdated && (
           <span className="text-xs text-gray-500">
@@ -634,7 +643,7 @@ function PorWorkOrdersView() {
           </span>
         )}
         <button
-          onClick={load}
+          onClick={() => load(statusFilter)}
           disabled={refreshing}
           className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60"
         >
