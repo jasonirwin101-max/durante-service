@@ -214,6 +214,36 @@ async function findSrRowNumber(srId) {
   return null;
 }
 
+// Resolve which sheet currently holds the row for srId. Active SRs live in
+// ServiceRequests; completed SRs were moved to CompletedRequests by the
+// archive step in the status-change flow. Callers that need to write to a
+// row regardless of whether it's been archived (e.g. customer rating after
+// completion) should use this instead of findSrRowNumber.
+async function findRequestRow(srId) {
+  const activeRows = await getRows('ServiceRequests');
+  for (let i = 1; i < activeRows.length; i++) {
+    if (activeRows[i][0] === srId) return { sheetName: 'ServiceRequests', rowNum: i + 1 };
+  }
+  await ensureCompletedTab();
+  const completedRows = await getRows(COMPLETED_SHEET);
+  for (let i = 1; i < completedRows.length; i++) {
+    if (completedRows[i][0] === srId) return { sheetName: COMPLETED_SHEET, rowNum: i + 1 };
+  }
+  return null;
+}
+
+async function updateRequestFields(srId, fields) {
+  const loc = await findRequestRow(srId);
+  if (!loc) throw new Error(`SR ${srId} not found in ServiceRequests or ${COMPLETED_SHEET}`);
+  for (const [field, value] of Object.entries(fields)) {
+    const colIdx = SR_COLS[field];
+    if (colIdx === undefined) continue;
+    const colLetter = columnToLetter(colIdx);
+    await updateCell(loc.sheetName, `${colLetter}${loc.rowNum}`, value);
+  }
+  return loc;
+}
+
 async function appendServiceRequest(srData) {
   // Build row array in column order
   const row = new Array(SR_HEADERS.length).fill('');
@@ -351,6 +381,8 @@ module.exports = {
   updateServiceRequestField,
   updateServiceRequestFields,
   findSrRowNumber,
+  findRequestRow,
+  updateRequestFields,
   appendStatusHistory,
   getStatusHistoryBySrId,
   getAllTechs,

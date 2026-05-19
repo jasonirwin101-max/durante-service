@@ -110,39 +110,56 @@ router.get('/:id/:token', async (req, res) => {
 
 // POST /api/rate/:id/:token
 router.post('/:id/:token', async (req, res) => {
+  const { id, token } = req.params;
   try {
-    const { id, token } = req.params;
-    const { rating, comments } = req.body;
+    console.log('[RATING] Received rating for SR:', id);
+    console.log('[RATING] Token:', token);
+    console.log('[RATING] Rating value:', req.body && req.body.rating);
+
+    const { rating, comments } = req.body || {};
 
     if (!rating || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+      console.log('[RATING] Rejected — invalid rating value:', rating);
       return res.status(400).json({ error: 'Rating must be an integer from 1 to 5' });
     }
 
     const sr = await sheets.getServiceRequestById(id);
-    if (!sr) return res.status(404).json({ error: 'Service request not found' });
+    if (!sr) {
+      console.log('[RATING] Rejected — SR not found in either sheet:', id);
+      return res.status(404).json({ error: 'Service request not found' });
+    }
 
     const tokenResult = await findRatingToken(id, token);
-    if (!tokenResult) return res.status(403).json({ error: 'Invalid rating link' });
-    if (tokenResult.used) return res.status(410).json({ error: 'Rating already submitted', alreadyRated: true });
+    if (!tokenResult) {
+      console.log('[RATING] Rejected — token not found in status history for SR:', id);
+      return res.status(403).json({ error: 'Invalid rating link' });
+    }
+    if (tokenResult.used) {
+      console.log('[RATING] Rejected — token already used for SR:', id);
+      return res.status(410).json({ error: 'Rating already submitted', alreadyRated: true });
+    }
 
     const now = new Date().toISOString();
     const cleanComments = comments ? String(comments).substring(0, 500).trim() : '';
 
-    // Write rating, timestamp, and comments to sheet
-    await sheets.updateServiceRequestFields(id, {
+    // updateRequestFields writes against whichever sheet currently holds the
+    // SR row — Completed SRs were archived out of ServiceRequests, so the
+    // legacy updateServiceRequestFields (active-only) cannot reach them.
+    const loc = await sheets.updateRequestFields(id, {
       Satisfaction_Rating: String(rating),
       Rating_Submitted_At: now,
       Rating_Comments: cleanComments,
     });
 
-    console.log(`[Rating] SR: ${id} Rating: ${rating}/5 from: ${sr.Company_Name}${cleanComments ? ' Comment: ' + cleanComments.substring(0, 50) : ''}`);
+    console.log(`[RATING] Saved to ${loc.sheetName} row ${loc.rowNum} — SR: ${id} Rating: ${rating}/5 from: ${sr.Company_Name}${cleanComments ? ' Comment: ' + cleanComments.substring(0, 50) : ''}`);
 
-    // Send email notification
+    // Send email notification (fire-and-forget)
     sendRatingEmail(sr, rating, cleanComments);
 
     res.json({ message: 'Thank you for your feedback!', rating });
   } catch (err) {
-    console.error('Submit rating error:', err);
+    console.error('[RATING] Error:', err.message);
+    console.error('[RATING] Stack:', err.stack);
     res.status(500).json({ error: 'Failed to save rating' });
   }
 });
