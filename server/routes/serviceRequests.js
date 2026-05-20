@@ -175,10 +175,16 @@ router.patch('/:id/status', async (req, res) => {
     // SR row, and surfaced in the approval-request email below.
     let effectiveStatus = status;
     let approvalToken = null;
+    if (status === STATUSES.COMPLETE) {
+      // Log every Complete attempt so a stale-deploy / wrong-role situation is
+      // visible in Railway logs without needing to bisect. role is exact-match
+      // — only literal "Tech" triggers the two-stage flow.
+      console.log(`[Approval] Status=Complete check: role="${role}" name="${name}" sr="${req.params.id}" — ${role === 'Tech' ? 'INTERCEPTING → Pending Approval' : 'BYPASSING approval (role !== Tech)'}`);
+    }
     if (role === 'Tech' && status === STATUSES.COMPLETE) {
       effectiveStatus = STATUSES.PENDING_APPROVAL;
       approvalToken = crypto.randomBytes(16).toString('hex'); // 32 hex chars
-      console.log(`[Approval] Tech ${name} marked ${req.params.id} Complete — converted to Pending Approval`);
+      console.log(`[Approval] Tech ${name} marked ${req.params.id} Complete — converted to Pending Approval, token=${approvalToken.substring(0, 8)}...`);
     }
 
     // Customer-facing note required on Mark Complete

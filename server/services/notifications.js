@@ -487,8 +487,14 @@ async function sendApprovalRequest(sr, approvalToken) {
   }
 
   const apiBase = process.env.BASE_URL || '';
+  if (!process.env.BASE_URL) {
+    console.warn('[Approval] BASE_URL env var is empty — approve/reject links will be RELATIVE and may be stripped by email clients. Set BASE_URL on Railway.');
+  }
   const approveUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/approve-completion?token=${encodeURIComponent(approvalToken)}`;
   const rejectUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/reject-completion?token=${encodeURIComponent(approvalToken)}`;
+  console.log(`[Approval] Building approval email for ${sr.SR_ID}`);
+  console.log(`[Approval]   APPROVE_URL = ${approveUrl}`);
+  console.log(`[Approval]   REJECT_URL  = ${rejectUrl}`);
 
   const techNotes = stripTimestamps(sr.Tech_Notes || '');
   const techNotesBlock = techNotes
