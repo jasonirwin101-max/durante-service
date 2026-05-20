@@ -14,6 +14,8 @@ const STATUS_BADGE = {
   'In Progress':         { color: 'bg-yellow-500',  text: 'In Progress' },
   'Parts Ordered':       { color: 'bg-orange-500',  text: 'Parts Ordered' },
   'Parts Arrived':       { color: 'bg-green-500',   text: 'Parts Arrived' },
+  'Pending Approval':    { color: 'bg-yellow-500',  text: 'In Progress' },
+  'Resolved via the Phone': { color: 'bg-green-700', text: 'Resolved via the Phone' },
   'Complete':            { color: 'bg-green-700',   text: 'Complete' },
   'Follow-Up Required':  { color: 'bg-orange-600',  text: 'Follow-Up Required' },
   'Cannot Repair':       { color: 'bg-red-600',     text: 'Cannot Repair' },

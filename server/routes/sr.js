@@ -208,6 +208,7 @@ router.post('/:srId/reopen', authMiddleware, requireRole('Manager'), async (req,
     if (!archived) {
       return res.status(404).json({ error: 'SR not found in CompletedRequests' });
     }
+    const previousStatus = archived.Current_Status || 'Complete';
     await sheets.moveCompletedToActive(srId);
     const now = new Date().toISOString();
     await sheets.updateServiceRequestFields(srId, {
@@ -219,7 +220,7 @@ router.post('/:srId/reopen', authMiddleware, requireRole('Manager'), async (req,
     await sheets.appendStatusHistory({
       SR_ID: srId,
       Status: STATUSES.IN_PROGRESS,
-      Notes: `SR reopened by ${req.user.name} on ${now} — was previously Complete`,
+      Notes: `SR reopened by ${req.user.name} on ${now} — was previously ${previousStatus}`,
       Updated_By: req.user.name,
       Role: 'Manager',
       Timestamp: now,
@@ -231,7 +232,7 @@ router.post('/:srId/reopen', authMiddleware, requireRole('Manager'), async (req,
     const subject = `${srId} has been reopened`;
     const body = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1A1A1A;">
 <p><strong>${escapeHtml(req.user.name)}</strong> reopened <strong>${escapeHtml(srId)}</strong> on ${escapeHtml(now)}.</p>
-<p>Previous status: Complete. The SR is now back in active status.</p>
+<p>Previous status: ${escapeHtml(previousStatus)}. The SR is now back in active status.</p>
 </body></html>`;
     sendEmail('service@duranteequip.com', subject, body).catch(err =>
       console.error('[Reopen] Notification email failed:', err.message)

@@ -6,7 +6,8 @@ const ALL_STATUSES = [
   'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
   'Diagnosing', 'In Progress', 'Parts Needed', 'Parts Ordered', 'Parts Arrived',
   'Left Site - Will Schedule Return', 'Unit to be Swapped', 'Unit Has Been Swapped',
-  'Pending Approval', 'Complete', 'Follow-Up Required', 'Cannot Repair', 'Cancelled',
+  'Pending Approval', 'Resolved via the Phone', 'Complete',
+  'Follow-Up Required', 'Cannot Repair', 'Cancelled',
 ]
 
 const STATUS_COLORS = {
@@ -15,7 +16,8 @@ const STATUS_COLORS = {
   'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
   'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
   'Unit to be Swapped': 'bg-purple-600', 'Unit Has Been Swapped': 'bg-purple-700',
-  'Pending Approval': 'bg-yellow-500', 'Complete': 'bg-green-700',
+  'Pending Approval': 'bg-yellow-500', 'Resolved via the Phone': 'bg-green-700',
+  'Complete': 'bg-green-700',
   'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
@@ -31,6 +33,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
   const [statusNotes, setStatusNotes] = useState('')
   const [eta, setEta] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
+  const [resolutionNotes, setResolutionNotes] = useState('')
   const [statusUpdating, setStatusUpdating] = useState(false)
 
   // Assign tech
@@ -86,18 +89,24 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
 
   async function handleStatusUpdate() {
     if (!newStatus) return
+    if (newStatus === 'Resolved via the Phone' && !resolutionNotes.trim()) {
+      showMsg('Resolution Notes are required', 'error')
+      return
+    }
     setStatusUpdating(true)
     try {
       const body = { status: newStatus }
       if (statusNotes.trim()) body.notes = statusNotes.trim()
       if (eta.trim()) body.eta = eta.trim()
       if (scheduledDate) body.scheduledDate = scheduledDate
+      if (newStatus === 'Resolved via the Phone') body.resolutionNotes = resolutionNotes.trim()
       await api.patch(`/requests/${srId}/status`, body)
       showMsg(`Status updated to ${newStatus}`)
       setNewStatus('')
       setStatusNotes('')
       setEta('')
       setScheduledDate('')
+      setResolutionNotes('')
       await loadDetail()
       onUpdate()
     } catch (err) {
@@ -386,12 +395,35 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                     {!eta && <p className="text-xs text-red-500 mt-1">Date and time required for unit swap</p>}
                   </div>
                 )}
+                {newStatus === 'Resolved via the Phone' && (
+                  <div className="rounded border border-green-300 bg-green-50 p-2">
+                    <label className="block text-xs font-bold text-green-800 mb-1">
+                      Resolution Notes <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={resolutionNotes}
+                      onChange={e => setResolutionNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Briefly describe how you resolved this over the phone (e.g. 'Walked customer through GPS reset')"
+                      className="w-full px-2 py-1.5 text-sm border border-green-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none resize-none"
+                      autoFocus
+                    />
+                  </div>
+                )}
                 <button
                   onClick={handleStatusUpdate}
-                  disabled={statusUpdating || (newStatus === 'Unit to be Swapped' && !eta)}
+                  disabled={
+                    statusUpdating ||
+                    (newStatus === 'Unit to be Swapped' && !eta) ||
+                    (newStatus === 'Resolved via the Phone' && !resolutionNotes.trim())
+                  }
                   className="w-full h-8 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
                 >
-                  {statusUpdating ? 'Updating...' : `Set to ${newStatus}`}
+                  {statusUpdating
+                    ? 'Updating...'
+                    : newStatus === 'Resolved via the Phone'
+                      ? 'Save & Notify Customer'
+                      : `Set to ${newStatus}`}
                 </button>
               </>
             )}
@@ -472,8 +504,8 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           </button>
         )}
 
-        {/* Reopen (Complete SRs only, Manager regardless of readOnly) */}
-        {user?.role === 'Manager' && sr.Current_Status === 'Complete' && (
+        {/* Reopen (Complete or Resolved via the Phone SRs, Manager regardless of readOnly) */}
+        {user?.role === 'Manager' && (sr.Current_Status === 'Complete' || sr.Current_Status === 'Resolved via the Phone') && (
           <button
             onClick={() => { setShowReopen(true); setReopenError(''); setReopenPassword(''); }}
             className="w-full h-9 text-sm font-medium border-2 border-gray-400 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"

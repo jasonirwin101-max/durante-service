@@ -39,6 +39,8 @@ const CUSTOMER_SMS_TEMPLATES = {
     `Hi ${name}, your Durante Equipment unit has been swapped for SR ${sr.SR_ID}. Please inspect your equipment and contact us if you have any concerns. Call us at ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'Complete': (sr, name, currentNote) =>
     `Hi ${name}, service has been completed on your equipment for SR ${sr.SR_ID}. Summary: ${stripTimestamps(currentNote || 'Resolved')}. We hope everything is working well! Please take a moment to rate our service: ${sr._ratingUrl || sr.Tracking_URL}`,
+  'Resolved via the Phone': (sr) =>
+    `Durante Equipment: Your service request ${sr.SR_ID} has been resolved over the phone. ${sr.Tracking_URL || ''} Rate your experience: ${sr._ratingUrl || sr.Tracking_URL || ''}`,
   'Follow-Up Required': (sr, name) =>
     `Hi ${name}, a follow-up visit is required for SR ${sr.SR_ID}. Our office will contact you shortly to schedule a return visit. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'Cannot Repair': (sr, name) =>
@@ -79,6 +81,8 @@ const SUBMITTER_SMS_TEMPLATES = {
     `${sr.SR_ID} - Unit has been swapped at ${sr.Company_Name}.`,
   'Complete': (sr) =>
     `${sr.SR_ID} - Service COMPLETE at ${sr.Company_Name}. Tech: ${sr.Assigned_Tech || 'TBD'}. Summary: ${stripTimestamps(sr.Tech_Notes || 'Resolved')}.`,
+  'Resolved via the Phone': (sr) =>
+    `${sr.SR_ID} - ${sr.Company_Name} resolved via phone by ${sr.Resolved_By || 'office'}. ${stripTimestamps(sr.Phone_Resolution_Notes || '')}`,
   'Follow-Up Required': (sr) =>
     `${sr.SR_ID} - Follow-up required at ${sr.Company_Name}. Office to contact customer.`,
   'Cannot Repair': (sr) =>
@@ -94,6 +98,7 @@ const STATUS_HEX = {
   'In Progress': '#16a34a', 'Parts Needed': '#f97316', 'Parts Ordered': '#f97316',
   'Parts Arrived': '#22c55e', 'Left Site - Will Schedule Return': '#3b82f6',
   'Unit to be Swapped': '#9333ea', 'Unit Has Been Swapped': '#7e22ce',
+  'Pending Approval': '#eab308', 'Resolved via the Phone': '#15803d',
   'Complete': '#15803d', 'Follow-Up Required': '#ea580c',
   'Cannot Repair': '#dc2626', 'Cancelled': '#9ca3af',
 };
@@ -119,6 +124,7 @@ const EMAIL_TEMPLATE_MAP = {
   'Left Site - Will Schedule Return': 'follow_up_required.html',
   'Unit to be Swapped': 'scheduled.html',
   'Unit Has Been Swapped': 'complete.html',
+  'Resolved via the Phone': 'phone_resolved.html',
   'Complete': 'complete.html',
   'Follow-Up Required': 'follow_up_required.html',
   'Cannot Repair': 'cannot_repair.html',
@@ -139,6 +145,7 @@ const EMAIL_SUBJECTS = {
   'Left Site - Will Schedule Return': (sr) => `Service Request ${sr.SR_ID} — Tech Left Site, Return Visit Needed`,
   'Unit to be Swapped': (sr) => `Service Request ${sr.SR_ID} — Unit Swap Scheduled`,
   'Unit Has Been Swapped': (sr) => `Service Request ${sr.SR_ID} — Unit Swapped`,
+  'Resolved via the Phone': (sr) => `Your Service Request Has Been Resolved — ${sr.SR_ID}`,
   'Complete': (sr) => `Service Request ${sr.SR_ID} — Complete`,
   'Follow-Up Required': (sr) => `Service Request ${sr.SR_ID} — Follow-Up Required`,
   'Cannot Repair': (sr) => `Service Request ${sr.SR_ID} — Cannot Repair`,
@@ -173,6 +180,7 @@ function renderTemplate(html, sr, extras = {}) {
     '{{TECH_NOTES}}': stripTimestamps(sr.Tech_Notes || ''),
     '{{TRACKING_URL}}': sr.Tracking_URL || '',
     '{{RATING_URL}}': sr._ratingUrl || sr.Tracking_URL || '',
+    '{{PHONE_RESOLUTION_NOTES}}': stripTimestamps(sr.Phone_Resolution_Notes || ''),
     '{{OFFICE_PHONE}}': formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE),
     '{{OFFICE_PHONE_TEL}}': formatPhoneTel(process.env.DURANTE_OFFICE_PHONE),
     '{{PHOTOS}}': buildPhotoHtml(sr),
@@ -592,12 +600,16 @@ async function fireNotifications(sr, status, currentNotes = {}) {
     ratingToken: null,
   };
 
-  // Generate PDF + rating token on COMPLETE — stash on sr for downstream use
-  if (status === 'Complete') {
+  // Rating token: any "final" customer-facing state (Complete OR phone resolution).
+  // PDF: only Complete — phone resolutions have no on-site visit to document.
+  const isFinal = status === 'Complete' || status === 'Resolved via the Phone';
+  if (isFinal) {
     const crypto = require('crypto');
     const token = crypto.randomBytes(24).toString('hex');
     result.ratingToken = token;
     sr._ratingUrl = `${process.env.BASE_URL}/rate/${sr.SR_ID}/${token}`;
+  }
+  if (status === 'Complete') {
     try {
       const { pdfUrl, pdfBuffer } = await generateAndSavePDF(sr);
       result.pdfUrl = pdfUrl;

@@ -155,7 +155,7 @@ router.get('/:id', async (req, res) => {
 // PATCH /api/requests/:id/status — update status
 router.patch('/:id/status', async (req, res) => {
   try {
-    const { status, notes, internalNotes, customerNotes, eta, scheduledDate, unitNumber } = req.body;
+    const { status, notes, internalNotes, customerNotes, eta, scheduledDate, unitNumber, resolutionNotes } = req.body;
     const { role, name } = req.user;
 
     if (!status) {
@@ -186,6 +186,10 @@ router.patch('/:id/status', async (req, res) => {
     if (status === STATUSES.COMPLETE && !customerNotesRaw.trim()) {
       return res.status(400).json({ error: 'Customer Update is required when marking Complete' });
     }
+    // Resolution notes required for Resolved via the Phone
+    if (status === STATUSES.PHONE_RESOLVED && (!resolutionNotes || !resolutionNotes.trim())) {
+      return res.status(400).json({ error: 'Resolution Notes are required for "Resolved via the Phone"' });
+    }
 
     // Check SR exists
     const sr = await sheets.getServiceRequestById(req.params.id);
@@ -204,6 +208,10 @@ router.patch('/:id/status', async (req, res) => {
       updates.Approval_Token = approvalToken;
       updates.Approval_Token_Created_At = now;
       updates.Approval_Token_Used = 'FALSE';
+    }
+    if (effectiveStatus === STATUSES.PHONE_RESOLVED) {
+      updates.Phone_Resolution_Notes = resolutionNotes.trim();
+      updates.Resolved_By = name;
     }
 
     if (eta) {
@@ -255,7 +263,7 @@ router.patch('/:id/status', async (req, res) => {
       }
     }
 
-    if (effectiveStatus === STATUSES.COMPLETE) {
+    if (effectiveStatus === STATUSES.COMPLETE || effectiveStatus === STATUSES.PHONE_RESOLVED) {
       updates.Service_Completed = 'TRUE';
     }
 
@@ -279,8 +287,13 @@ router.patch('/:id/status', async (req, res) => {
         console.error('[Approval] Request email failed:', err.message)
       );
     } else {
+      // For phone resolution, the customer note shown in the email is the
+      // resolution-notes field (no separate Tech_Notes stacking happened).
+      const customerNoteForNotif = effectiveStatus === STATUSES.PHONE_RESOLVED
+        ? (resolutionNotes || '').trim()
+        : translatedCustomerNote;
       notifyResult = await fireNotifications(updatedSr, effectiveStatus, {
-        customerNote: translatedCustomerNote,
+        customerNote: customerNoteForNotif,
         internalNote: translatedInternalNote,
       });
     }
@@ -291,6 +304,9 @@ router.patch('/:id/status', async (req, res) => {
       historyNotes = historyNotes
         ? `${historyNotes} | Awaiting service@ review`
         : 'Pending Approval — Awaiting service@ review';
+    }
+    if (effectiveStatus === STATUSES.PHONE_RESOLVED) {
+      historyNotes = `Resolved via the Phone by ${name} — ${resolutionNotes.trim()}`;
     }
     if (notifyResult.ratingToken) {
       historyNotes = historyNotes
@@ -312,10 +328,11 @@ router.patch('/:id/status', async (req, res) => {
       Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
     });
 
-    // Archive: only when status flips to Complete (not Pending Approval).
-    // The approve endpoint handles archive-on-approval.
+    // Archive: when status flips to Complete OR Resolved via the Phone (both are
+    // "done" states). Pending Approval does NOT archive — the approve endpoint
+    // handles that path. Phone resolutions skip the approval flow entirely.
     let archived = false;
-    if (effectiveStatus === STATUSES.COMPLETE) {
+    if (effectiveStatus === STATUSES.COMPLETE || effectiveStatus === STATUSES.PHONE_RESOLVED) {
       try {
         await sheets.writeCompletedRequest(updatedSr);
         await sheets.deleteServiceRequest(req.params.id);

@@ -27,6 +27,8 @@ const SR_COLS = {
   Approval_Token: 46,
   Approval_Token_Created_At: 47,
   Approval_Token_Used: 48,
+  Phone_Resolution_Notes: 49,
+  Resolved_By: 50,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);

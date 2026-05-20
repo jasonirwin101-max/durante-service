@@ -18,6 +18,7 @@ const STATUS_COLORS = {
   'Unit to be Swapped': 'bg-purple-600',
   'Unit Has Been Swapped': 'bg-purple-700',
   'Pending Approval': 'bg-yellow-500',
+  'Resolved via the Phone': 'bg-green-700',
   'Complete': 'bg-green-700',
   'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600',
