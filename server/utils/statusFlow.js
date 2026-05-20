@@ -12,6 +12,7 @@ const STATUSES = {
   LEFT_SITE: 'Left Site - Will Schedule Return',
   UNIT_TO_BE_SWAPPED: 'Unit to be Swapped',
   UNIT_HAS_BEEN_SWAPPED: 'Unit Has Been Swapped',
+  PENDING_APPROVAL: 'Pending Approval',
   COMPLETE: 'Complete',
   FOLLOW_UP_REQUIRED: 'Follow-Up Required',
   CANNOT_REPAIR: 'Cannot Repair',

@@ -16,6 +16,7 @@ const uploadRoutes = require('./routes/upload');
 const rateRoutes = require('./routes/rate');
 const statsRoutes = require('./routes/stats');
 const porRoutes = require('./routes/por');
+const srRoutes = require('./routes/sr');
 const { startEscalationCron } = require('./cron/escalation');
 const { startDigestCron } = require('./cron/digest');
 
@@ -55,6 +56,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/rate', publicLimiter, rateRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/por', porRoutes);
+app.use('/api/sr', srRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -65,6 +67,14 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Durante Service API running on port ${PORT}`);
+
+  // Auto-extend header rows of ServiceRequests / CompletedRequests if SR_COLS
+  // has grown since the sheet was created (e.g. new approval / clock columns).
+  // Sheets API has no schema — cells exist when written — but the header row
+  // needs the labels in row 1 so humans reading the tab can interpret columns.
+  require('./services/sheets').ensureSheetHeaders().catch(err =>
+    console.error('[startup] ensureSheetHeaders failed:', err.message)
+  );
 
   // Start cron jobs
   startEscalationCron();

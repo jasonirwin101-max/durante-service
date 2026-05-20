@@ -2,8 +2,9 @@ const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const { isValidStatus, canRoleSetStatus, STATUSES } = require('../utils/statusFlow');
 const sheets = require('../services/sheets');
-const { fireNotifications } = require('../services/notifications');
+const { fireNotifications, sendApprovalRequest } = require('../services/notifications');
 const { processNotes } = require('../services/translate');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -49,7 +50,11 @@ function computeClockUpdates(sr, status, nowIso, srId) {
       console.log(`[CLOCK] Paused for SR: ${srId}, total so far: ${newTotal}s`);
     }
     // Not running → no-op
-  } else if (status === STATUSES.COMPLETE) {
+  } else if (status === STATUSES.COMPLETE || status === STATUSES.PENDING_APPROVAL) {
+    // Pending Approval stops the clock too — work is done from the tech's
+    // perspective, the office review is administrative. If the office
+    // rejects, status flips to In Progress and the tech can tap Dispatched
+    // / On Site again to resume.
     let finalTotal = clockTotalSec;
     if (clockStatus === 'running' && clockStartIso) {
       const elapsed = Math.floor((Date.now() - new Date(clockStartIso).getTime()) / 1000);
@@ -165,6 +170,17 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(403).json({ error: `Role ${role} cannot set status to ${status}` });
     }
 
+    // Tech-initiated Complete goes to Pending Approval first. Managers bypass
+    // approval (they ARE the approver). Token is generated here, saved on the
+    // SR row, and surfaced in the approval-request email below.
+    let effectiveStatus = status;
+    let approvalToken = null;
+    if (role === 'Tech' && status === STATUSES.COMPLETE) {
+      effectiveStatus = STATUSES.PENDING_APPROVAL;
+      approvalToken = crypto.randomBytes(16).toString('hex'); // 32 hex chars
+      console.log(`[Approval] Tech ${name} marked ${req.params.id} Complete — converted to Pending Approval`);
+    }
+
     // Customer-facing note required on Mark Complete
     const customerNotesRaw = (customerNotes !== undefined ? customerNotes : notes) || '';
     if (status === STATUSES.COMPLETE && !customerNotesRaw.trim()) {
@@ -179,10 +195,16 @@ router.patch('/:id/status', async (req, res) => {
 
     // Build updates
     const updates = {
-      Current_Status: status,
+      Current_Status: effectiveStatus,
       Status_Updated_At: now,
       Status_Updated_By: name,
     };
+
+    if (effectiveStatus === STATUSES.PENDING_APPROVAL) {
+      updates.Approval_Token = approvalToken;
+      updates.Approval_Token_Created_At = now;
+      updates.Approval_Token_Used = 'FALSE';
+    }
 
     if (eta) {
       console.log(`[ETA DEBUG] Saving ETA: "${eta}" (type: ${typeof eta})`);
@@ -191,7 +213,7 @@ router.patch('/:id/status', async (req, res) => {
     if (scheduledDate) updates.Scheduled_Date = scheduledDate;
     if (unitNumber) updates.Unit_Number = unitNumber;
 
-    Object.assign(updates, computeClockUpdates(sr, status, now, req.params.id));
+    Object.assign(updates, computeClockUpdates(sr, effectiveStatus, now, req.params.id));
 
     const stamp = formatNoteDateTime(now);
 
@@ -233,7 +255,7 @@ router.patch('/:id/status', async (req, res) => {
       }
     }
 
-    if (status === STATUSES.COMPLETE) {
+    if (effectiveStatus === STATUSES.COMPLETE) {
       updates.Service_Completed = 'TRUE';
     }
 
@@ -243,16 +265,33 @@ router.patch('/:id/status', async (req, res) => {
     // Re-read the SR with updated fields for notification templates
     const updatedSr = await sheets.getServiceRequestById(req.params.id);
 
-    // Fire notifications. Pass the JUST-TRANSLATED current notes so the customer
-    // sees only this update — not the full Tech_Notes history accumulated in
-    // the sheet. Internal/submitter rendering still uses the full history.
-    const notifyResult = await fireNotifications(updatedSr, status, {
-      customerNote: translatedCustomerNote,
-      internalNote: translatedInternalNote,
-    });
+    // Two paths from here:
+    //   1. effectiveStatus === Pending Approval — send ONLY the approval-request
+    //      email to service@; no customer/submitter notifications, no archive.
+    //   2. Anything else — existing flow (customer + submitter + maybe PDF).
+    let notifyResult = {
+      customerNotified: false, submitterNotified: false,
+      smsSent: false, emailSent: false, ratingToken: null,
+    };
+    if (effectiveStatus === STATUSES.PENDING_APPROVAL) {
+      // Fire-and-forget — failure here shouldn't block the status response.
+      sendApprovalRequest(updatedSr, approvalToken).catch(err =>
+        console.error('[Approval] Request email failed:', err.message)
+      );
+    } else {
+      notifyResult = await fireNotifications(updatedSr, effectiveStatus, {
+        customerNote: translatedCustomerNote,
+        internalNote: translatedInternalNote,
+      });
+    }
 
     // Build notes with rating token if COMPLETE
     let historyNotes = customerNotesRaw || '';
+    if (effectiveStatus === STATUSES.PENDING_APPROVAL) {
+      historyNotes = historyNotes
+        ? `${historyNotes} | Awaiting service@ review`
+        : 'Pending Approval — Awaiting service@ review';
+    }
     if (notifyResult.ratingToken) {
       historyNotes = historyNotes
         ? `${historyNotes} | RATING_TOKEN:${notifyResult.ratingToken}`
@@ -262,7 +301,7 @@ router.patch('/:id/status', async (req, res) => {
     // Append to StatusHistory with notification results
     await sheets.appendStatusHistory({
       SR_ID: req.params.id,
-      Status: status,
+      Status: effectiveStatus,
       Notes: historyNotes,
       Updated_By: name,
       Role: role,
@@ -273,10 +312,10 @@ router.patch('/:id/status', async (req, res) => {
       Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
     });
 
-    // Archive: when status flips to Complete, copy the row to
-    // CompletedRequests and remove it from ServiceRequests.
+    // Archive: only when status flips to Complete (not Pending Approval).
+    // The approve endpoint handles archive-on-approval.
     let archived = false;
-    if (status === STATUSES.COMPLETE) {
+    if (effectiveStatus === STATUSES.COMPLETE) {
       try {
         await sheets.writeCompletedRequest(updatedSr);
         await sheets.deleteServiceRequest(req.params.id);
@@ -288,12 +327,13 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     res.json({
-      message: `Status updated to ${status}`,
+      message: `Status updated to ${effectiveStatus}`,
       srId: req.params.id,
-      status,
+      status: effectiveStatus,
       updatedAt: now,
       notifications: notifyResult,
       archived,
+      pendingApproval: effectiveStatus === STATUSES.PENDING_APPROVAL,
     });
   } catch (err) {
     console.error('Status update error:', err);

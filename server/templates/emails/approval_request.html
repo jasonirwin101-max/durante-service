@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px 0;">
+<tr><td align="center">
+<table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+  <tr><td style="background:#CC0000;padding:20px 30px;">
+    <h1 style="color:#ffffff;margin:0;font-size:22px;">Durante Equipment — Completion Approval Needed</h1>
+    <p style="color:#ffffff;margin:4px 0 0;font-size:13px;">Review the completed service request before notifying the customer.</p>
+  </td></tr>
+
+  <tr><td style="padding:24px 30px 10px;">
+    <h2 style="color:#1A1A1A;margin:0 0 4px;font-size:18px;">{{SR_ID}} — {{COMPANY_NAME}}</h2>
+    <p style="margin:0 0 6px;color:#6b7280;font-size:13px;">Completed by <strong style="color:#1A1A1A;">{{TECH_NAME_FULL}}</strong> · {{COMPLETED_AT}}</p>
+    <p style="margin:0;color:#6b7280;font-size:13px;">Total time on job: <strong style="color:#15803d;">{{TOTAL_SERVICE_TIME}}</strong></p>
+  </td></tr>
+
+  <tr><td style="padding:10px 30px 0;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:8px 12px;background:#f9f9f9;font-weight:bold;width:170px;">Contact</td><td style="padding:8px 12px;background:#f9f9f9;">{{CONTACT_NAME}} · {{CONTACT_PHONE}}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:bold;">Site</td><td style="padding:8px 12px;">{{SITE_ADDRESS}}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f9f9f9;font-weight:bold;">Equipment</td><td style="padding:8px 12px;background:#f9f9f9;">{{EQUIPMENT}}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:bold;">Asset / Unit #</td><td style="padding:8px 12px;">{{ASSET_NUMBER}} / {{UNIT_NUMBER}}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f9f9f9;font-weight:bold;">Problem Reported</td><td style="padding:8px 12px;background:#f9f9f9;">{{PROBLEM}}</td></tr>
+    </table>
+  </td></tr>
+
+  {{TECH_NOTES_BLOCK}}
+  {{INTERNAL_NOTES_BLOCK}}
+  {{PHOTOS_BLOCK}}
+
+  <tr><td style="padding:30px 30px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td align="center" style="padding:0 6px;">
+        <a href="{{APPROVE_URL}}" style="display:inline-block;padding:16px 28px;background-color:#16a34a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:16px;font-weight:bold;min-width:240px;text-align:center;">✓ APPROVE — Send to Customer</a>
+      </td>
+      <td align="center" style="padding:0 6px;">
+        <a href="{{REJECT_URL}}" style="display:inline-block;padding:16px 28px;background-color:#CC0000;color:#ffffff;text-decoration:none;border-radius:8px;font-size:16px;font-weight:bold;min-width:240px;text-align:center;">✗ REJECT — Send Back to Tech</a>
+      </td>
+    </tr></table>
+    <p style="margin:18px 0 0;color:#6b7280;font-size:12px;text-align:center;">Approval link expires in 7 days. PDF completion report is attached to this email.</p>
+  </td></tr>
+
+  <tr><td style="background:#1A1A1A;padding:15px 30px;text-align:center;">
+    <p style="color:#999;margin:0;font-size:12px;">&copy; Durante Equipment &bull; Hollywood, FL &bull; {{OFFICE_PHONE}}</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

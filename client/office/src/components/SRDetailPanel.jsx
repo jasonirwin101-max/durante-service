@@ -6,7 +6,7 @@ const ALL_STATUSES = [
   'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
   'Diagnosing', 'In Progress', 'Parts Needed', 'Parts Ordered', 'Parts Arrived',
   'Left Site - Will Schedule Return', 'Unit to be Swapped', 'Unit Has Been Swapped',
-  'Complete', 'Follow-Up Required', 'Cannot Repair', 'Cancelled',
+  'Pending Approval', 'Complete', 'Follow-Up Required', 'Cannot Repair', 'Cancelled',
 ]
 
 const STATUS_COLORS = {
@@ -15,7 +15,8 @@ const STATUS_COLORS = {
   'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
   'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
   'Unit to be Swapped': 'bg-purple-600', 'Unit Has Been Swapped': 'bg-purple-700',
-  'Complete': 'bg-green-700', 'Follow-Up Required': 'bg-orange-600',
+  'Pending Approval': 'bg-yellow-500', 'Complete': 'bg-green-700',
+  'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600', 'Cancelled': 'bg-gray-400',
 }
 
@@ -42,6 +43,16 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
 
   // Re-send
   const [resending, setResending] = useState(false)
+
+  // Approve / Reject (Pending Approval SRs)
+  const [approving, setApproving] = useState(false)
+  const [rejecting, setRejecting] = useState(false)
+
+  // Reopen (completed SRs)
+  const [showReopen, setShowReopen] = useState(false)
+  const [reopenPassword, setReopenPassword] = useState('')
+  const [reopening, setReopening] = useState(false)
+  const [reopenError, setReopenError] = useState('')
 
   // Feedback
   const [msg, setMsg] = useState('')
@@ -121,6 +132,61 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
       showMsg(err.response?.data?.error || 'Failed', 'error')
     } finally {
       setNotesSaving(false)
+    }
+  }
+
+  async function handleApprove() {
+    if (!confirm('Approve this SR and notify the customer?')) return
+    setApproving(true)
+    try {
+      await api.post(`/sr/${srId}/approve`)
+      showMsg('Approved — customer notified')
+      await loadDetail()
+      onUpdate()
+    } catch (err) {
+      showMsg(err.response?.data?.error || 'Failed to approve', 'error')
+    } finally {
+      setApproving(false)
+    }
+  }
+
+  async function handleReject() {
+    if (!confirm('Reject this completion and send back to the tech?')) return
+    setRejecting(true)
+    try {
+      await api.post(`/sr/${srId}/reject`)
+      showMsg('Sent back to tech')
+      await loadDetail()
+      onUpdate()
+    } catch (err) {
+      showMsg(err.response?.data?.error || 'Failed to reject', 'error')
+    } finally {
+      setRejecting(false)
+    }
+  }
+
+  async function handleReopen() {
+    if (!reopenPassword.trim()) {
+      setReopenError('Password is required')
+      return
+    }
+    setReopening(true)
+    setReopenError('')
+    try {
+      await api.post(`/sr/${srId}/reopen`, { password: reopenPassword })
+      setShowReopen(false)
+      setReopenPassword('')
+      showMsg('SR reopened — back in active status')
+      await loadDetail()
+      onUpdate()
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setReopenError('Incorrect password')
+      } else {
+        setReopenError(err.response?.data?.error || 'Failed to reopen')
+      }
+    } finally {
+      setReopening(false)
     }
   }
 
@@ -369,6 +435,32 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           </Section>
         )}
 
+        {/* Approve / Reject (Pending Approval SRs, Manager only) */}
+        {canEdit && sr.Current_Status === 'Pending Approval' && (
+          <div className="rounded-lg border-2 border-yellow-300 bg-yellow-50 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-800 font-bold text-sm">⏳ Awaiting Approval</span>
+              <span className="text-xs text-yellow-700">— tech marked complete, review before customer is notified</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleApprove}
+                disabled={approving || rejecting}
+                className="flex-1 h-10 text-sm font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {approving ? 'Approving...' : '✓ Approve & Send to Customer'}
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={approving || rejecting}
+                className="flex-1 h-10 text-sm font-bold text-white bg-[#CC0000] rounded-lg hover:bg-[#A30000] disabled:opacity-50"
+              >
+                {rejecting ? 'Rejecting...' : '✗ Reject — Send Back to Tech'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Re-send Notifications (Managers only) */}
         {canEdit && (
           <button
@@ -378,6 +470,55 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           >
             {resending ? 'Sending...' : 'Re-send Notifications'}
           </button>
+        )}
+
+        {/* Reopen (Complete SRs only, Manager regardless of readOnly) */}
+        {user?.role === 'Manager' && sr.Current_Status === 'Complete' && (
+          <button
+            onClick={() => { setShowReopen(true); setReopenError(''); setReopenPassword(''); }}
+            className="w-full h-9 text-sm font-medium border-2 border-gray-400 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            🔓 Reopen Service Request
+          </button>
+        )}
+
+        {/* Reopen modal */}
+        {showReopen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-md p-5 space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Reopen Service Request</h3>
+              <p className="text-sm text-gray-700">
+                This will move <span className="font-mono font-semibold">{sr.SR_ID}</span> back to active status. This action will be logged. Enter password to confirm:
+              </p>
+              <input
+                type="password"
+                value={reopenPassword}
+                onChange={e => { setReopenPassword(e.target.value); setReopenError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') handleReopen() }}
+                placeholder="Password"
+                autoFocus
+                className="w-full h-9 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+              />
+              {reopenError && (
+                <p className="text-sm text-red-600">{reopenError}</p>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => { setShowReopen(false); setReopenPassword(''); setReopenError(''); }}
+                  className="flex-1 h-9 text-sm font-medium border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReopen}
+                  disabled={reopening}
+                  className="flex-1 h-9 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                >
+                  {reopening ? 'Reopening...' : 'Reopen'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Customer Update (Tech_Notes — sent to customer) */}

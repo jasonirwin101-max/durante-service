@@ -17,6 +17,7 @@ const STATUS_COLORS = {
   'Left Site - Will Schedule Return': 'bg-blue-500',
   'Unit to be Swapped': 'bg-purple-600',
   'Unit Has Been Swapped': 'bg-purple-700',
+  'Pending Approval': 'bg-yellow-500',
   'Complete': 'bg-green-700',
   'Follow-Up Required': 'bg-orange-600',
   'Cannot Repair': 'bg-red-600',
@@ -426,7 +427,11 @@ function ActiveView({
                           <td className="px-3 py-2 max-w-[120px] truncate">{sr.Contact_Name}</td>
                           <td className="px-3 py-2 max-w-[160px] truncate">{sr.Equipment_Description}</td>
                           <td className="px-3 py-2 whitespace-nowrap">
-                            {isReceived ? (
+                            {sr.Current_Status === 'Pending Approval' ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                ⏳ Awaiting Approval
+                              </span>
+                            ) : isReceived ? (
                               <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-white text-[#E31837]">
                                 ACTION NEEDED
                               </span>

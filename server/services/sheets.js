@@ -24,6 +24,9 @@ const SR_COLS = {
   Clock_Total_Seconds: 43,
   Clock_Status: 44,
   Total_Service_Time: 45,
+  Approval_Token: 46,
+  Approval_Token_Created_At: 47,
+  Approval_Token_Used: 48,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);
@@ -179,6 +182,73 @@ async function writeCompletedRequest(srData) {
     if (srData[key] !== undefined) row[idx] = srData[key];
   }
   await appendRow(COMPLETED_SHEET, row);
+}
+
+async function deleteCompletedRequest(srId) {
+  await ensureCompletedTab();
+  const rows = await getRows(COMPLETED_SHEET);
+  let rowNum = null;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === srId) { rowNum = i + 1; break; }
+  }
+  if (!rowNum) return false;
+  const sheets = getSheets();
+  const sheetId = await getTabId(COMPLETED_SHEET);
+  if (sheetId === undefined) throw new Error(`${COMPLETED_SHEET} tab not found`);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: rowNum - 1, endIndex: rowNum },
+        },
+      }],
+    },
+  });
+  return true;
+}
+
+// Move an archived SR back to the active ServiceRequests sheet. Preserves
+// every field; the caller is responsible for any column resets
+// (e.g. clearing Service_Completed). Used by the Reopen flow.
+async function moveCompletedToActive(srId) {
+  await ensureCompletedTab();
+  const all = await getAllCompletedRequests();
+  const sr = all.find(r => r.SR_ID === srId);
+  if (!sr) throw new Error(`SR ${srId} not found in ${COMPLETED_SHEET}`);
+  await appendServiceRequest(sr);
+  await deleteCompletedRequest(srId);
+  return sr;
+}
+
+// Ensure the header row of each sheet contains every column we know about.
+// Sheets API has no schema concept — writers just produce cells — but humans
+// reading the tab need labels in row 1, so we extend it when SR_COLS grows.
+async function ensureSheetHeaders() {
+  const sheets = getSheets();
+  for (const tab of ['ServiceRequests', COMPLETED_SHEET]) {
+    try {
+      if (tab === COMPLETED_SHEET) await ensureCompletedTab();
+      const headerResp = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tab}!1:1`,
+      });
+      const existing = (headerResp.data.values && headerResp.data.values[0]) || [];
+      if (existing.length >= SR_HEADERS.length) continue;
+      const missing = SR_HEADERS.slice(existing.length);
+      const startCol = columnToLetter(existing.length);
+      const endCol = columnToLetter(SR_HEADERS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tab}!${startCol}1:${endCol}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [missing] },
+      });
+      console.log(`[sheets] ${tab}: extended header row with ${missing.length} new columns:`, missing.join(','));
+    } catch (err) {
+      console.error(`[sheets] ensureSheetHeaders failed for ${tab}:`, err.message);
+    }
+  }
 }
 
 async function deleteServiceRequest(srId) {
@@ -383,6 +453,9 @@ module.exports = {
   findSrRowNumber,
   findRequestRow,
   updateRequestFields,
+  deleteCompletedRequest,
+  moveCompletedToActive,
+  ensureSheetHeaders,
   appendStatusHistory,
   getStatusHistoryBySrId,
   getAllTechs,

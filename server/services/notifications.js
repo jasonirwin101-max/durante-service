@@ -439,6 +439,93 @@ function buildDashboardUrl(srId) {
   return `${base}/sr/${srId}`;
 }
 
+function loadApprovalTemplate() {
+  const filePath = path.join(__dirname, '..', 'templates', 'emails', 'approval_request.html');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error('Failed to load approval_request.html:', err.message);
+    return null;
+  }
+}
+
+function buildPhotoThumbnailBlock(sr) {
+  const photos = [sr.Photo_1, sr.Photo_2, sr.Photo_3, sr.Photo_4].filter(p => p && p.startsWith('http'));
+  if (photos.length === 0) return '';
+  const cells = photos.map(url => (
+    `<td align="center" style="padding:6px;">
+       <a href="${url}" target="_blank"><img src="${url}" alt="" width="140" style="display:block;border:1px solid #e5e7eb;border-radius:6px;max-width:140px;height:auto;" /></a>
+     </td>`
+  )).join('');
+  return `<tr><td style="padding:20px 30px 0;">
+    <div style="font-size:11px;font-weight:bold;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Photos</div>
+    <table cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>
+  </td></tr>`;
+}
+
+async function sendApprovalRequest(sr, approvalToken) {
+  const html = loadApprovalTemplate();
+  if (!html) return false;
+
+  // Generate PDF for attachment (approver previews what would go to customer).
+  let pdfBuffer = null;
+  let pdfName = null;
+  try {
+    const result = await generateAndSavePDF(sr);
+    pdfBuffer = result.pdfBuffer;
+    pdfName = `${sr.SR_ID}-completion-report.pdf`;
+  } catch (err) {
+    console.error('[Approval] PDF generation failed (sending without attachment):', err.message);
+  }
+
+  const apiBase = process.env.BASE_URL || '';
+  const approveUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/approve-completion?token=${encodeURIComponent(approvalToken)}`;
+  const rejectUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/reject-completion?token=${encodeURIComponent(approvalToken)}`;
+
+  const techNotes = stripTimestamps(sr.Tech_Notes || '');
+  const techNotesBlock = techNotes
+    ? `<tr><td style="padding:20px 30px 0;"><div style="padding:14px 18px;background-color:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;">
+         <div style="font-size:11px;font-weight:bold;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Customer Update Note</div>
+         <div style="font-size:14px;color:#78350F;line-height:1.5;">${escapeHtml(techNotes).replace(/\n/g, '<br>')}</div>
+       </div></td></tr>`
+    : '';
+  const internal = stripTimestamps(sr.Internal_Notes || '');
+  const internalBlock = internal
+    ? `<tr><td style="padding:20px 30px 0;"><div style="padding:14px 18px;background-color:#F3F4F6;border-left:4px solid #6B7280;border-radius:4px;">
+         <div style="font-size:11px;font-weight:bold;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Internal Notes</div>
+         <div style="font-size:14px;color:#1F2937;line-height:1.5;">${escapeHtml(internal).replace(/\n/g, '<br>')}</div>
+       </div></td></tr>`
+    : '';
+
+  const extras = {
+    '{{TECH_NAME_FULL}}': sr.Assigned_Tech || 'Unassigned',
+    '{{COMPLETED_AT}}': formatTimestampDisplay(sr.Status_Updated_At) || formatTimestampDisplay(new Date().toISOString()),
+    '{{TOTAL_SERVICE_TIME}}': sr.Total_Service_Time || '0m',
+    '{{CONTACT_PHONE}}': formatPhoneDisplay(sr.Contact_Phone) || sr.Contact_Phone || '',
+    '{{SITE_ADDRESS}}': sr.Site_Address || '',
+    '{{ASSET_NUMBER}}': sr.Asset_Number || '—',
+    '{{UNIT_NUMBER}}': sr.Unit_Number || '—',
+    '{{PROBLEM}}': sr.Problem_Description || '',
+    '{{APPROVE_URL}}': approveUrl,
+    '{{REJECT_URL}}': rejectUrl,
+    '{{TECH_NOTES_BLOCK}}': techNotesBlock,
+    '{{INTERNAL_NOTES_BLOCK}}': internalBlock,
+    '{{PHOTOS_BLOCK}}': buildPhotoThumbnailBlock(sr),
+  };
+  const rendered = renderTemplate(html, sr, extras);
+  const subject = `Approval Needed: ${sr.SR_ID} completed by ${sr.Assigned_Tech || 'Unknown'}`;
+  const to = 'service@duranteequip.com';
+
+  let ok;
+  if (pdfBuffer) {
+    ok = await sendEmailWithAttachment(to, subject, rendered, pdfBuffer, pdfName);
+  } else {
+    ok = await sendEmail(to, subject, rendered);
+  }
+  console.log(`[Approval] Request email sent to ${to} for ${sr.SR_ID}: ${ok ? 'ok' : 'FAILED'}`);
+  return ok;
+}
+
 function loadServiceTimeTemplate() {
   const filePath = path.join(__dirname, '..', 'templates', 'emails', 'service_time_report.html');
   try {
@@ -571,6 +658,7 @@ module.exports = {
   fireNotifications,
   sendCustomerNotification,
   sendSubmitterNotification,
+  sendApprovalRequest,
   renderTemplate,
   loadEmailTemplate,
   CUSTOMER_SMS_TEMPLATES,
