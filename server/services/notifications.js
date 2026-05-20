@@ -486,15 +486,18 @@ async function sendApprovalRequest(sr, approvalToken) {
     console.error('[Approval] PDF generation failed (sending without attachment):', err.message);
   }
 
-  const apiBase = process.env.BASE_URL || '';
-  if (!process.env.BASE_URL) {
-    console.warn('[Approval] BASE_URL env var is empty — approve/reject links will be RELATIVE and may be stripped by email clients. Set BASE_URL on Railway.');
+  // Approval/reject buttons must hit the Railway backend, NOT the customer
+  // tracking SPA. BASE_URL points to the customer tracking host
+  // (durante-track.netlify.app), so use API_PUBLIC_URL when set.
+  // Customer tracking links elsewhere (sr.Tracking_URL) continue to use BASE_URL.
+  const apiBase = process.env.API_PUBLIC_URL || process.env.BASE_URL || '';
+  if (!process.env.API_PUBLIC_URL) {
+    console.warn('[APPROVAL] API_PUBLIC_URL is not set — falling back to BASE_URL. Approve/reject buttons will hit the customer tracking host, not Railway. Set API_PUBLIC_URL=https://durante-service-production.up.railway.app on Railway.');
   }
   const approveUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/approve-completion?token=${encodeURIComponent(approvalToken)}`;
   const rejectUrl = `${apiBase}/api/sr/${encodeURIComponent(sr.SR_ID)}/reject-completion?token=${encodeURIComponent(approvalToken)}`;
-  console.log(`[Approval] Building approval email for ${sr.SR_ID}`);
-  console.log(`[Approval]   APPROVE_URL = ${approveUrl}`);
-  console.log(`[Approval]   REJECT_URL  = ${rejectUrl}`);
+  console.log('[APPROVAL] approveUrl:', approveUrl);
+  console.log('[APPROVAL] rejectUrl:', rejectUrl);
 
   const techNotes = stripTimestamps(sr.Tech_Notes || '');
   const techNotesBlock = techNotes
