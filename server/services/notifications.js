@@ -403,9 +403,7 @@ async function sendSubmitterNotification(sr, status) {
   if (html && submitterEmail) {
     const history = await getStatusHistoryBySrId(sr.SR_ID).catch(() => []);
     const color = STATUS_HEX[status] || '#6b7280';
-    const dashboardUrl = process.env.OFFICE_DASHBOARD_URL
-      ? `${process.env.OFFICE_DASHBOARD_URL}/sr/${sr.SR_ID}`
-      : '';
+    const dashboardUrl = buildDashboardUrl(sr.SR_ID);
     const extras = {
       '{{STATUS}}': status,
       '{{STATUS_COLOR}}': color,
@@ -430,6 +428,15 @@ async function sendSubmitterNotification(sr, status) {
   }
 
   return out;
+}
+
+// Build the office dashboard URL for an SR. Honors OFFICE_DASHBOARD_URL if set
+// (lets staging/preview environments override); falls back to the production
+// Netlify URL so the "View in Dashboard" button works even if the env var is
+// missing on Railway.
+function buildDashboardUrl(srId) {
+  const base = process.env.OFFICE_DASHBOARD_URL || 'https://durante-office.netlify.app';
+  return `${base}/sr/${srId}`;
 }
 
 function loadServiceTimeTemplate() {
@@ -526,9 +533,7 @@ async function fireNotifications(sr, status, currentNotes = {}) {
   if (status === 'Received') {
     const html = loadNewRequestTemplate();
     if (html) {
-      const dashboardUrl = process.env.OFFICE_DASHBOARD_URL
-        ? `${process.env.OFFICE_DASHBOARD_URL}/sr/${sr.SR_ID}`
-        : '';
+      const dashboardUrl = buildDashboardUrl(sr.SR_ID);
       const extras = {
         '{{SUBMITTED_ON}}': formatTimestampDisplay(sr.Submitted_On),
         '{{CONTACT_PHONE}}': formatPhoneDisplay(sr.Contact_Phone) || sr.Contact_Phone || '',
