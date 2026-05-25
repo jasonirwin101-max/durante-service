@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import { formatTimestampShort, dateTimeLocalToIso } from '../utils/datetime'
 
 const ALL_STATUSES = [
   'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
@@ -97,8 +98,13 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
     try {
       const body = { status: newStatus }
       if (statusNotes.trim()) body.notes = statusNotes.trim()
-      if (eta.trim()) body.eta = eta.trim()
-      if (scheduledDate) body.scheduledDate = scheduledDate
+      if (eta.trim()) {
+        // "Unit to be Swapped" uses a datetime-local picker — convert to ISO
+        // (ET wall-time → UTC) so the server stores a TZ-anchored value.
+        // Free-text ETAs ("Between 2-4 PM") pass through unchanged.
+        body.eta = newStatus === 'Unit to be Swapped' ? dateTimeLocalToIso(eta) : eta.trim()
+      }
+      if (scheduledDate) body.scheduledDate = dateTimeLocalToIso(scheduledDate)
       if (newStatus === 'Resolved via the Phone') body.resolutionNotes = resolutionNotes.trim()
       await api.patch(`/requests/${srId}/status`, body)
       showMsg(`Status updated to ${newStatus}`)
@@ -654,10 +660,7 @@ function Row({ label, value, link }) {
 }
 
 function fmtTime(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
-  })
+  return formatTimestampShort(iso)
 }
 
 function fmtClockHMS(sec) {

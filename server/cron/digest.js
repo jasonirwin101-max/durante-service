@@ -65,7 +65,7 @@ async function runDailyDigest() {
       <div style="font-family:Arial,sans-serif;max-width:700px;">
         <div style="background:#1A1A1A;color:#fff;padding:15px 20px;">
           <h2 style="margin:0;color:#E31837;">Daily Service Digest</h2>
-          <p style="margin:4px 0 0;font-size:13px;color:#aaa;">${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#aaa;">${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: process.env.TIMEZONE || 'America/New_York' })}</p>
         </div>
 
         <div style="padding:15px 0;">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { STATUS_ES, L } from '../components/Bi'
+import { formatTimestampShort } from '../utils/datetime'
 
 const TECH_STATUSES = ['Dispatched', 'On Site', 'Diagnosing', 'In Progress', 'Parts Needed', 'Left Site - Will Schedule Return', 'Complete']
 
@@ -377,8 +378,7 @@ function BiRow({ en, es, value, link }) {
 }
 
 function formatTime(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+  return formatTimestampShort(iso)
 }
 
 function fmtHMS(sec) {

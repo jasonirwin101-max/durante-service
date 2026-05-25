@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
+import { formatTimestampShort, formatDateTime } from './utils/datetime'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api' })
 
@@ -103,8 +104,8 @@ export default function TrackPage() {
           <InfoRow label="Equipment" value={data.equipmentDescription} />
           <InfoRow label="Issue" value={data.problemDescription} />
           {data.assignedTech && <InfoRow label="Technician" value={data.assignedTech} />}
-          {data.eta && <InfoRow label="ETA" value={data.eta} highlight />}
-          {data.scheduledDate && <InfoRow label="Scheduled" value={data.scheduledDate} highlight />}
+          {data.eta && <InfoRow label="ETA" value={formatDateTime(data.eta)} highlight />}
+          {data.scheduledDate && <InfoRow label="Scheduled" value={formatDateTime(data.scheduledDate)} highlight />}
         </div>
 
         {/* Timeline */}
@@ -186,10 +187,5 @@ function InfoRow({ label, value, highlight }) {
 }
 
 function fmtTime(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit', hour12: true,
-  })
+  return formatTimestampShort(iso)
 }

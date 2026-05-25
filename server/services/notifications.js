@@ -5,6 +5,7 @@ const { sendEmail, sendEmailWithAttachment } = require('./outlook');
 const { deriveSubmitterEmail } = require('../utils/emailDeriver');
 const { generateAndSavePDF } = require('./pdf');
 const { getStatusHistoryBySrId } = require('./sheets');
+const { formatDateTime, formatTimestampShort } = require('../utils/datetime');
 
 // ─── Customer SMS Templates ─────────────────────────────────
 // Professional, customer-facing. Takes (sr, name) so the greeting
@@ -216,15 +217,7 @@ function buildTimelineHtml(history) {
 }
 
 function formatTimestampDisplay(iso) {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      hour12: true, timeZone: 'America/New_York',
-    });
-  } catch { return iso; }
+  return formatTimestampShort(iso);
 }
 
 function escapeHtml(str) {
@@ -268,15 +261,9 @@ function formatETA(eta) {
   if (!eta || eta === 'undefined' || eta === 'null' || eta === 'Invalid Date' || eta === 'TBD') {
     return 'To be confirmed';
   }
-  try {
-    const date = new Date(eta);
-    if (isNaN(date.getTime())) return eta; // readable string like "Between 2-4 PM"
-    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
-    const dateStr = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/New_York' });
-    return `${time} ${dateStr}`;
-  } catch {
-    return 'To be confirmed';
-  }
+  // formatDateTime handles both ISO and naive datetime-local strings as ET
+  // wall-time. Free-text values like "Between 2-4 PM" come back unchanged.
+  return formatDateTime(eta);
 }
 
 function stripTimestamps(text) {

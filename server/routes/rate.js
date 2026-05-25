@@ -4,6 +4,7 @@ const path = require('path');
 const sheets = require('../services/sheets');
 const { sendEmail } = require('../services/outlook');
 const { deriveSubmitterEmail } = require('../utils/emailDeriver');
+const { formatDateTimeLong } = require('../utils/datetime');
 
 const router = express.Router();
 
@@ -35,11 +36,7 @@ function sendRatingEmail(sr, rating, comments) {
     const templatePath = path.join(__dirname, '..', 'templates', 'emails', 'rating_received.html');
     let html = fs.readFileSync(templatePath, 'utf-8');
 
-    const ratedOn = new Date().toLocaleString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
-      hour: 'numeric', minute: '2-digit', hour12: true,
-      timeZone: 'America/New_York',
-    });
+    const ratedOn = formatDateTimeLong(new Date());
 
     const commentsRow = comments
       ? `<tr><td style="padding:8px 12px;background:#f9f9f9;font-weight:bold;">Comments</td><td style="padding:8px 12px;background:#f9f9f9;">${comments}</td></tr>`

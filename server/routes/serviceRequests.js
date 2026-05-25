@@ -4,6 +4,7 @@ const { isValidStatus, canRoleSetStatus, STATUSES } = require('../utils/statusFl
 const sheets = require('../services/sheets');
 const { fireNotifications, sendApprovalRequest } = require('../services/notifications');
 const { processNotes } = require('../services/translate');
+const { formatNoteStamp, toIsoUtc, parseDate } = require('../utils/datetime');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -70,15 +71,23 @@ function computeClockUpdates(sr, status, nowIso, srId) {
 }
 
 function formatNoteDateTime(iso) {
-  const d = iso instanceof Date ? iso : new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const dateStr = d.toLocaleDateString('en-US', {
-    month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/New_York',
-  });
-  const timeStr = d.toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York',
-  });
-  return `${dateStr} ${timeStr}`;
+  return formatNoteStamp(iso);
+}
+
+// ETA can be a free-text string ("Between 2-4 PM") OR a datetime-local value
+// from the office picker ("2026-05-25T14:00"). Normalize the latter to a
+// proper ISO UTC string so downstream formatters render the right wall-time
+// regardless of where Node is running.
+function normalizeDateTimeField(value) {
+  if (!value) return value;
+  const s = String(value).trim();
+  if (!s) return s;
+  // Naive datetime-local — looks like an ISO date+time with no TZ marker.
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+    const d = parseDate(s); // treats as ET wall time
+    if (d && !isNaN(d.getTime())) return d.toISOString();
+  }
+  return s;
 }
 
 // GET /api/requests — get all service requests (filtered by role)
@@ -221,10 +230,11 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     if (eta) {
-      console.log(`[ETA DEBUG] Saving ETA: "${eta}" (type: ${typeof eta})`);
-      updates.ETA = eta;
+      const normalizedEta = normalizeDateTimeField(eta);
+      console.log(`[ETA DEBUG] Saving ETA: "${eta}" → "${normalizedEta}" (type: ${typeof eta})`);
+      updates.ETA = normalizedEta;
     }
-    if (scheduledDate) updates.Scheduled_Date = scheduledDate;
+    if (scheduledDate) updates.Scheduled_Date = normalizeDateTimeField(scheduledDate);
     if (unitNumber) updates.Unit_Number = unitNumber;
 
     Object.assign(updates, computeClockUpdates(sr, effectiveStatus, now, req.params.id));
@@ -382,7 +392,13 @@ router.patch('/:id', async (req, res) => {
     const updates = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+        // Normalize naive datetime-local values on the time fields so they
+        // round-trip through the sheet as ISO UTC.
+        if (field === 'ETA' || field === 'Scheduled_Date') {
+          updates[field] = normalizeDateTimeField(req.body[field]);
+        } else {
+          updates[field] = req.body[field];
+        }
       }
     }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import api from '../api'
 import SRDetailPanel from '../components/SRDetailPanel'
 import FilterBar from '../components/FilterBar'
+import { formatDateShort, formatTime } from '../utils/datetime'
 
 const STATUS_COLORS = {
   'Received': 'bg-gray-500',
@@ -38,10 +39,7 @@ function ageRowClass(isoDate) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateShort(iso)
 }
 
 export default function Dashboard() {
@@ -254,7 +252,7 @@ export default function Dashboard() {
         <div className="flex-1" />
         {lastUpdated && (
           <span className="text-xs text-gray-500">
-            Last updated: {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            Last updated: {formatTime(lastUpdated)}
           </span>
         )}
         <button
@@ -328,7 +326,7 @@ export default function Dashboard() {
 
 function KPICards({ stats }) {
   const now = new Date()
-  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'America/New_York' })
   const yearLabel = String(now.getFullYear())
   const cards = [
     { label: 'Service Requests MTD', value: stats?.srMTD, sub: monthLabel },

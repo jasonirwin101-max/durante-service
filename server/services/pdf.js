@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 const sheets = require('./sheets');
+const { formatDateLong } = require('../utils/datetime');
 
 let driveClient = null;
 let folderId = null;
@@ -91,8 +92,8 @@ function generatePDF(sr) {
     doc.fontSize(16).fill(DARK).text(sr.SR_ID, 50, y);
     y += 25;
 
-    const submittedDate = sr.Submitted_On ? new Date(sr.Submitted_On).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
-    const completedDate = sr.Status_Updated_At ? new Date(sr.Status_Updated_At).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+    const submittedDate = sr.Submitted_On ? formatDateLong(sr.Submitted_On) : '';
+    const completedDate = sr.Status_Updated_At ? formatDateLong(sr.Status_Updated_At) : '';
 
     // Duration
     let duration = '';
