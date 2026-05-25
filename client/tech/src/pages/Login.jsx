@@ -13,7 +13,8 @@ export default function Login() {
   const [fetchingTechs, setFetchingTechs] = useState(true)
 
   useEffect(() => {
-    api.get('/auth/techs')
+    // Server filters to roles allowed for the tech portal (Tech or Manager).
+    api.get('/auth/techs?app=tech')
       .then(res => {
         const sorted = res.data.slice().sort((a, b) => {
           const lastA = (a.name || '').split(/\s+/).pop()
@@ -39,10 +40,18 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const res = await api.post('/auth/login', { name: selectedName, pin })
+      const res = await api.post('/auth/login', { name: selectedName, pin, app: 'tech' })
       login(res.data.token, res.data.user)
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed / Error de inicio de sesión')
+      const status = err.response?.status
+      if (status === 403) {
+        // Server's access-denied message (role gate).
+        setError(err.response.data.error)
+      } else if (status === 401) {
+        setError('Invalid PIN')
+      } else {
+        setError(err.response?.data?.error || 'Login failed / Error de inicio de sesión')
+      }
       setPin('')
     } finally {
       setLoading(false)

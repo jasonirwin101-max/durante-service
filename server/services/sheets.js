@@ -39,13 +39,15 @@ const SH_HEADERS = [
   'Timestamp', 'Customer_Notified', 'Submitter_Notified', 'SMS_Sent', 'Email_Sent',
 ];
 
-// Column mappings for Techs sheet. Show_In_Submit drives the public submit
-// form's "Your Name" dropdown — flip to TRUE in the sheet to expose someone
-// without a code change. ensureTechHeaders() creates the column on startup
-// if it doesn't exist and seeds Jason Irwin to TRUE / everyone else FALSE.
+// Column mappings for Techs sheet. Two boolean columns gate UI access:
+//   Show_In_Submit   — appears in the public submit form's "Your Name" list
+//   Dashboard_Access — non-Manager override for the office dashboard login
+// Both are created on startup by ensureTechHeaders() if missing. Each column
+// has its own one-time seed (Show_In_Submit → Jason TRUE, rest FALSE;
+// Dashboard_Access → all FALSE).
 const TECH_HEADERS = [
   'Tech_ID', 'Full_Name', 'Email', 'Phone', 'PIN', 'Role', 'Active', 'Created_At',
-  'Show_In_Submit',
+  'Show_In_Submit', 'Dashboard_Access',
 ];
 
 let sheetsClient = null;
@@ -252,11 +254,14 @@ async function ensureTechHeaders() {
     });
     console.log(`[sheets] Techs: extended header row with ${missing.length} new columns:`, missing.join(','));
 
-    // One-time migration for Show_In_Submit: only seed when the column is
-    // brand-new. Jason Irwin → TRUE, everyone else → FALSE. Future column
-    // additions reuse this same shape by adding cases below.
+    // One-time migrations: only seed columns that were brand-new in this run.
+    //   Show_In_Submit   → Jason Irwin TRUE, everyone else FALSE
+    //   Dashboard_Access → all FALSE (Managers are gated by role, not this)
     if (missing.includes('Show_In_Submit')) {
       await seedShowInSubmitColumn();
+    }
+    if (missing.includes('Dashboard_Access')) {
+      await seedDashboardAccessColumn();
     }
   } catch (err) {
     console.error('[sheets] ensureTechHeaders failed:', err.message);
@@ -287,6 +292,25 @@ async function seedShowInSubmitColumn() {
     requestBody: { values },
   });
   console.log(`[sheets] Show_In_Submit seeded for ${values.length} rows; Jason Irwin set TRUE (row ${jasonRow || 'not found'}), all others FALSE`);
+}
+
+async function seedDashboardAccessColumn() {
+  const sheets = getSheets();
+  const rows = await getRows('Techs');
+  if (rows.length <= 1) {
+    console.log('[sheets] Dashboard_Access seed: no tech rows to seed');
+    return;
+  }
+  const colIdx = TECH_HEADERS.indexOf('Dashboard_Access');
+  const colLetter = columnToLetter(colIdx);
+  const values = Array.from({ length: rows.length - 1 }, () => ['FALSE']);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Techs!${colLetter}2:${colLetter}${rows.length}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+  console.log(`[sheets] Dashboard_Access seeded for ${values.length} rows; all set to FALSE`);
 }
 
 // Ensure the header row of each sheet contains every column we know about.
@@ -466,6 +490,7 @@ function rowToTech(row) {
     Active: row[6] || 'FALSE',
     Created_At: row[7] || '',
     Show_In_Submit: row[8] || 'FALSE',
+    Dashboard_Access: row[9] || 'FALSE',
   };
 }
 
@@ -491,6 +516,7 @@ async function appendTech(techData) {
     techData.Active || 'TRUE',
     techData.Created_At || new Date().toISOString(),
     techData.Show_In_Submit || 'FALSE',
+    techData.Dashboard_Access || 'FALSE',
   ];
   await appendRow('Techs', row);
 }

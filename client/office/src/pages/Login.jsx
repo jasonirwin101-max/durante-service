@@ -11,8 +11,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    api.get('/auth/techs')
-      .then(res => setTechs(res.data.filter(t => t.role === 'Manager' || t.role === 'Sales')))
+    // Server filters to users allowed for the dashboard (Manager OR
+    // Dashboard_Access=TRUE), so no client-side role filtering is needed.
+    api.get('/auth/techs?app=dashboard')
+      .then(res => setTechs(res.data))
       .catch(err => {
         const detail = err.response ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}` : err.message
         console.error('[OFFICE LOGIN] Failed to load techs:', detail)
@@ -29,15 +31,18 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const res = await api.post('/auth/login', { name: selectedName, pin })
-      if (res.data.user.role !== 'Manager' && res.data.user.role !== 'Sales') {
-        setError('Access denied — Manager or Sales role required')
-        setPin('')
-        return
-      }
+      const res = await api.post('/auth/login', { name: selectedName, pin, app: 'dashboard' })
       login(res.data.token, res.data.user)
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed')
+      const status = err.response?.status
+      if (status === 403) {
+        // Server's access-denied message (role / Dashboard_Access gate).
+        setError(err.response.data.error)
+      } else if (status === 401) {
+        setError('Invalid PIN')
+      } else {
+        setError(err.response?.data?.error || 'Login failed')
+      }
       setPin('')
     } finally {
       setLoading(false)
