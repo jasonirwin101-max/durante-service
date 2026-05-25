@@ -1,21 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api' })
-
-const SUBMITTER_NAMES = [
-  'Jason Irwin',
-  'Allan Montoya',
-  'Ray Diaz',
-  'Robert Andrews',
-  'Saleh Kraiem',
-  'Tina Caccavale',
-  'James DeNitto',
-  'Justin Bighouse',
-  'Adam Zunic',
-  'Eddie Rivera',
-  'Nestor Balmaseda',
-]
 
 const REQUIRED_FIELDS = [
   { key: 'companyName', label: 'Company Name' },
@@ -48,9 +34,45 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [copied, setCopied] = useState(false)
 
+  // Submitter dropdown is driven by GET /api/submitters (Techs sheet rows
+  // where Active=TRUE AND Show_In_Submit=TRUE). On fetch failure we fall
+  // back to a free-text input so the form is never blocked by an API hiccup.
+  const [submitters, setSubmitters] = useState([])
+  const [submittersLoading, setSubmittersLoading] = useState(true)
+  const [submittersError, setSubmittersError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get('/submitters')
+      .then(res => {
+        if (cancelled) return
+        setSubmitters(Array.isArray(res.data) ? res.data : [])
+        setSubmittersError(false)
+      })
+      .catch(err => {
+        if (cancelled) return
+        console.warn('[submit] /api/submitters failed — falling back to free-text name input:', err.message)
+        setSubmittersError(true)
+      })
+      .finally(() => { if (!cancelled) setSubmittersLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
   function update(key, value) {
     setForm(f => ({ ...f, [key]: value }))
     if (errors[key]) setErrors(e => ({ ...e, [key]: '' }))
+  }
+
+  // When a name is picked from the dropdown, auto-fill the phone field from
+  // the same /api/submitters row. The user can still edit the phone after.
+  function selectSubmitterName(name) {
+    setForm(f => {
+      const match = submitters.find(s => s.name === name)
+      const next = { ...f, submitterName: name }
+      if (match && match.phone) next.submitterPhone = match.phone
+      return next
+    })
+    if (errors.submitterName) setErrors(e => ({ ...e, submitterName: '' }))
   }
 
   function handlePhotos(e) {
@@ -290,7 +312,27 @@ export default function App() {
           {/* Submitter */}
           <FormSection title="Submitter (DE Employee)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:items-end">
-              <SelectField label="Your Name" required value={form.submitterName} onChange={v => update('submitterName', v)} error={errors.submitterName} options={SUBMITTER_NAMES} placeholder="Select your name..." />
+              {submittersError ? (
+                <Field
+                  label="Your Name"
+                  required
+                  value={form.submitterName}
+                  onChange={v => update('submitterName', v)}
+                  error={errors.submitterName}
+                  hint="Type your full name"
+                />
+              ) : (
+                <SelectField
+                  label="Your Name"
+                  required
+                  value={form.submitterName}
+                  onChange={selectSubmitterName}
+                  error={errors.submitterName}
+                  options={submitters.map(s => s.name)}
+                  placeholder={submittersLoading ? 'Loading names...' : 'Select your name...'}
+                  disabled={submittersLoading}
+                />
+              )}
               <Field label="Your Phone" required type="tel" value={form.submitterPhone} onChange={v => update('submitterPhone', v)} error={errors.submitterPhone} hint="For SMS updates" />
             </div>
           </FormSection>
@@ -350,7 +392,7 @@ function Field({ label, required, type = 'text', value, onChange, error, hint, p
   )
 }
 
-function SelectField({ label, required, value, onChange, error, options, placeholder }) {
+function SelectField({ label, required, value, onChange, error, options, placeholder, disabled }) {
   return (
     <div data-error={!!error}>
       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -360,7 +402,8 @@ function SelectField({ label, required, value, onChange, error, options, placeho
         value={value}
         onChange={e => onChange(e.target.value)}
         required={required}
-        className={`w-full min-h-[44px] px-3 border rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none transition-colors ${
+        disabled={disabled}
+        className={`w-full min-h-[44px] px-3 border rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-500 ${
           error ? 'border-red-400 bg-red-50' : 'border-gray-300'
         }`}
       >

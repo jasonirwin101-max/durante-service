@@ -17,6 +17,7 @@ const rateRoutes = require('./routes/rate');
 const statsRoutes = require('./routes/stats');
 const porRoutes = require('./routes/por');
 const srRoutes = require('./routes/sr');
+const submitterRoutes = require('./routes/submitters');
 const { startEscalationCron } = require('./cron/escalation');
 const { startDigestCron } = require('./cron/digest');
 
@@ -57,6 +58,7 @@ app.use('/api/rate', publicLimiter, rateRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/por', porRoutes);
 app.use('/api/sr', srRoutes);
+app.use('/api/submitters', publicLimiter, submitterRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -74,6 +76,12 @@ app.listen(PORT, () => {
   // needs the labels in row 1 so humans reading the tab can interpret columns.
   require('./services/sheets').ensureSheetHeaders().catch(err =>
     console.error('[startup] ensureSheetHeaders failed:', err.message)
+  );
+
+  // Same idea for the Techs sheet — adds new columns like Show_In_Submit
+  // and runs any one-time data seed tied to that column.
+  require('./services/sheets').ensureTechHeaders().catch(err =>
+    console.error('[startup] ensureTechHeaders failed:', err.message)
   );
 
   // Start cron jobs

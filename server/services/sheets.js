@@ -39,9 +39,13 @@ const SH_HEADERS = [
   'Timestamp', 'Customer_Notified', 'Submitter_Notified', 'SMS_Sent', 'Email_Sent',
 ];
 
-// Column mappings for Techs sheet
+// Column mappings for Techs sheet. Show_In_Submit drives the public submit
+// form's "Your Name" dropdown — flip to TRUE in the sheet to expose someone
+// without a code change. ensureTechHeaders() creates the column on startup
+// if it doesn't exist and seeds Jason Irwin to TRUE / everyone else FALSE.
 const TECH_HEADERS = [
   'Tech_ID', 'Full_Name', 'Email', 'Phone', 'PIN', 'Role', 'Active', 'Created_At',
+  'Show_In_Submit',
 ];
 
 let sheetsClient = null;
@@ -223,6 +227,68 @@ async function moveCompletedToActive(srId) {
   return sr;
 }
 
+// Ensure the Techs sheet has every column we know about. When we add a new
+// optional column (e.g. Show_In_Submit) we both extend the header row AND
+// seed the column for existing rows so the feature doesn't read as empty.
+// Idempotent: if the header is already present we do nothing.
+async function ensureTechHeaders() {
+  const sheets = getSheets();
+  try {
+    const headerResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Techs!1:1',
+    });
+    const existing = (headerResp.data.values && headerResp.data.values[0]) || [];
+    if (existing.length >= TECH_HEADERS.length) return;
+
+    const missing = TECH_HEADERS.slice(existing.length);
+    const startCol = columnToLetter(existing.length);
+    const endCol = columnToLetter(TECH_HEADERS.length - 1);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Techs!${startCol}1:${endCol}1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [missing] },
+    });
+    console.log(`[sheets] Techs: extended header row with ${missing.length} new columns:`, missing.join(','));
+
+    // One-time migration for Show_In_Submit: only seed when the column is
+    // brand-new. Jason Irwin → TRUE, everyone else → FALSE. Future column
+    // additions reuse this same shape by adding cases below.
+    if (missing.includes('Show_In_Submit')) {
+      await seedShowInSubmitColumn();
+    }
+  } catch (err) {
+    console.error('[sheets] ensureTechHeaders failed:', err.message);
+  }
+}
+
+async function seedShowInSubmitColumn() {
+  const sheets = getSheets();
+  const rows = await getRows('Techs');
+  if (rows.length <= 1) {
+    console.log('[sheets] Show_In_Submit seed: no tech rows to seed');
+    return;
+  }
+  const colIdx = TECH_HEADERS.indexOf('Show_In_Submit');
+  const colLetter = columnToLetter(colIdx);
+  const values = [];
+  let jasonRow = null;
+  for (let i = 1; i < rows.length; i++) {
+    const fullName = (rows[i][1] || '').trim().toLowerCase();
+    const isJason = fullName === 'jason irwin';
+    if (isJason) jasonRow = i + 1;
+    values.push([isJason ? 'TRUE' : 'FALSE']);
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Techs!${colLetter}2:${colLetter}${rows.length}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+  console.log(`[sheets] Show_In_Submit seeded for ${values.length} rows; Jason Irwin set TRUE (row ${jasonRow || 'not found'}), all others FALSE`);
+}
+
 // Ensure the header row of each sheet contains every column we know about.
 // Sheets API has no schema concept — writers just produce cells — but humans
 // reading the tab need labels in row 1, so we extend it when SR_COLS grows.
@@ -399,6 +465,7 @@ function rowToTech(row) {
     Role: row[5] || '',
     Active: row[6] || 'FALSE',
     Created_At: row[7] || '',
+    Show_In_Submit: row[8] || 'FALSE',
   };
 }
 
@@ -423,6 +490,7 @@ async function appendTech(techData) {
     techData.Role || '',
     techData.Active || 'TRUE',
     techData.Created_At || new Date().toISOString(),
+    techData.Show_In_Submit || 'FALSE',
   ];
   await appendRow('Techs', row);
 }
@@ -458,6 +526,7 @@ module.exports = {
   deleteCompletedRequest,
   moveCompletedToActive,
   ensureSheetHeaders,
+  ensureTechHeaders,
   appendStatusHistory,
   getStatusHistoryBySrId,
   getAllTechs,
