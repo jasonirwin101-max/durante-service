@@ -530,6 +530,51 @@ async function sendApprovalRequest(sr, approvalToken) {
   return ok;
 }
 
+function loadEscalation15MinTemplate() {
+  const filePath = path.join(__dirname, '..', 'templates', 'emails', 'escalation_15min_warning.html');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error('Failed to load escalation_15min_warning.html:', err.message);
+    return null;
+  }
+}
+
+// Email sent to all Receives_SR_Alerts recipients when an SR sits in "Received"
+// status for 15+ minutes. `to` is a comma-separated string of emails so a
+// single Graph send fans out to everyone — keeps the per-SR send count to 1.
+async function sendEscalationWarningEmail({ to, sr, dashboardUrl }) {
+  if (!to) {
+    console.warn('[ESCALATION_15M] No email recipients for warning email');
+    return false;
+  }
+  const html = loadEscalation15MinTemplate();
+  if (!html) return false;
+
+  const extras = {
+    '{{CONTACT_PHONE}}': formatPhoneDisplay(sr.Contact_Phone) || sr.Contact_Phone || '',
+    '{{SITE_ADDRESS}}': sr.Site_Address || '',
+    '{{SUBMITTED_ON}}': formatTimestampDisplay(sr.Submitted_On),
+    '{{SUBMITTER_NAME}}': sr.Submitter_Name || '',
+    '{{PROBLEM}}': sr.Problem_Description || '',
+    '{{DASHBOARD_URL}}': dashboardUrl || buildDashboardUrl(sr.SR_ID),
+  };
+  const rendered = renderTemplate(html, sr, extras);
+  const subject = `⚠️ Unacknowledged SR Alert: ${sr.SR_ID}`;
+
+  // Graph's sendMail only takes one toRecipients list, but the wrapper we have
+  // only accepts a single string. Fan out one send per address so a failure
+  // for one address doesn't drop the rest.
+  const addrs = String(to).split(',').map(s => s.trim()).filter(Boolean);
+  const results = await Promise.all(addrs.map(addr =>
+    sendEmail(addr, subject, rendered).catch(err => {
+      console.error(`[ESCALATION_15M] email failed to ${addr}:`, err.message);
+      return false;
+    })
+  ));
+  return results.some(Boolean);
+}
+
 function loadServiceTimeTemplate() {
   const filePath = path.join(__dirname, '..', 'templates', 'emails', 'service_time_report.html');
   try {
@@ -667,6 +712,7 @@ module.exports = {
   sendCustomerNotification,
   sendSubmitterNotification,
   sendApprovalRequest,
+  sendEscalationWarningEmail,
   renderTemplate,
   loadEmailTemplate,
   CUSTOMER_SMS_TEMPLATES,

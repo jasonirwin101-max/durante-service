@@ -19,6 +19,7 @@ const porRoutes = require('./routes/por');
 const srRoutes = require('./routes/sr');
 const submitterRoutes = require('./routes/submitters');
 const { startEscalationCron } = require('./cron/escalation');
+const { startEscalation15MinCron } = require('./cron/escalation15min');
 const { startDigestCron } = require('./cron/digest');
 
 const app = express();
@@ -86,5 +87,6 @@ app.listen(PORT, () => {
 
   // Start cron jobs
   startEscalationCron();
+  startEscalation15MinCron();
   startDigestCron();
 });

@@ -29,6 +29,7 @@ const SR_COLS = {
   Approval_Token_Used: 48,
   Phone_Resolution_Notes: 49,
   Resolved_By: 50,
+  Escalation_Sent: 51,
 };
 
 const SR_HEADERS = Object.keys(SR_COLS);
@@ -39,15 +40,16 @@ const SH_HEADERS = [
   'Timestamp', 'Customer_Notified', 'Submitter_Notified', 'SMS_Sent', 'Email_Sent',
 ];
 
-// Column mappings for Techs sheet. Two boolean columns gate UI access:
-//   Show_In_Submit   — appears in the public submit form's "Your Name" list
-//   Dashboard_Access — non-Manager override for the office dashboard login
-// Both are created on startup by ensureTechHeaders() if missing. Each column
+// Column mappings for Techs sheet. Boolean columns gate UI access / alerting:
+//   Show_In_Submit     — appears in the public submit form's "Your Name" list
+//   Dashboard_Access   — non-Manager override for the office dashboard login
+//   Receives_SR_Alerts — receives immediate-SMS-on-new-SR and 15-min escalation
+// All are created on startup by ensureTechHeaders() if missing. Each column
 // has its own one-time seed (Show_In_Submit → Jason TRUE, rest FALSE;
-// Dashboard_Access → all FALSE).
+// Dashboard_Access → all FALSE; Receives_SR_Alerts → Jason + Eddie TRUE).
 const TECH_HEADERS = [
   'Tech_ID', 'Full_Name', 'Email', 'Phone', 'PIN', 'Role', 'Active', 'Created_At',
-  'Show_In_Submit', 'Dashboard_Access',
+  'Show_In_Submit', 'Dashboard_Access', 'Receives_SR_Alerts',
 ];
 
 let sheetsClient = null;
@@ -263,6 +265,9 @@ async function ensureTechHeaders() {
     if (missing.includes('Dashboard_Access')) {
       await seedDashboardAccessColumn();
     }
+    if (missing.includes('Receives_SR_Alerts')) {
+      await seedReceivesSrAlertsColumn();
+    }
   } catch (err) {
     console.error('[sheets] ensureTechHeaders failed:', err.message);
   }
@@ -313,6 +318,40 @@ async function seedDashboardAccessColumn() {
   console.log(`[sheets] Dashboard_Access seeded for ${values.length} rows; all set to FALSE`);
 }
 
+// One-time seed: Jason Irwin + Eddie Rivera → TRUE, all other rows → FALSE.
+// Match is case-insensitive on Full_Name. Only runs once, gated by
+// ensureTechHeaders() detecting the column as freshly added.
+async function seedReceivesSrAlertsColumn() {
+  const sheets = getSheets();
+  const rows = await getRows('Techs');
+  if (rows.length <= 1) {
+    console.log('[sheets] Receives_SR_Alerts seed: no tech rows to seed');
+    return;
+  }
+  const colIdx = TECH_HEADERS.indexOf('Receives_SR_Alerts');
+  const colLetter = columnToLetter(colIdx);
+  const values = [];
+  let jasonRow = null;
+  let eddieRow = null;
+  let otherCount = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const fullName = (rows[i][1] || '').trim().toLowerCase();
+    const isJason = fullName === 'jason irwin';
+    const isEddie = fullName === 'eddie rivera';
+    if (isJason) jasonRow = i + 1;
+    if (isEddie) eddieRow = i + 1;
+    if (!isJason && !isEddie) otherCount++;
+    values.push([(isJason || isEddie) ? 'TRUE' : 'FALSE']);
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Techs!${colLetter}2:${colLetter}${rows.length}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+  console.log(`[sheets] Receives_SR_Alerts seeded; Jason Irwin set TRUE (row ${jasonRow || 'not found'}), Eddie Rivera set TRUE (row ${eddieRow || 'not found'}), ${otherCount} others FALSE`);
+}
+
 // Ensure the header row of each sheet contains every column we know about.
 // Sheets API has no schema concept — writers just produce cells — but humans
 // reading the tab need labels in row 1, so we extend it when SR_COLS grows.
@@ -337,10 +376,36 @@ async function ensureSheetHeaders() {
         requestBody: { values: [missing] },
       });
       console.log(`[sheets] ${tab}: extended header row with ${missing.length} new columns:`, missing.join(','));
+
+      // Defensive seed: if Escalation_Sent was just created, mark every
+      // existing row TRUE so the 15-min cron does not retroactively fire
+      // on long-dormant "Received" SRs. New rows written by /api/submit
+      // explicitly set Escalation_Sent='FALSE'.
+      if (tab === 'ServiceRequests' && missing.includes('Escalation_Sent')) {
+        await seedEscalationSentColumn();
+      }
     } catch (err) {
       console.error(`[sheets] ensureSheetHeaders failed for ${tab}:`, err.message);
     }
   }
+}
+
+async function seedEscalationSentColumn() {
+  const sheets = getSheets();
+  const rows = await getRows('ServiceRequests');
+  if (rows.length <= 1) {
+    console.log('[sheets] Escalation_Sent seed: no SR rows to seed');
+    return;
+  }
+  const colLetter = columnToLetter(SR_COLS.Escalation_Sent);
+  const values = Array.from({ length: rows.length - 1 }, () => ['TRUE']);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `ServiceRequests!${colLetter}2:${colLetter}${rows.length}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+  console.log(`[sheets] Escalation_Sent seeded for ${values.length} existing rows (all TRUE — suppresses retroactive 15-min alerts)`);
 }
 
 async function deleteServiceRequest(srId) {
@@ -491,6 +556,7 @@ function rowToTech(row) {
     Created_At: row[7] || '',
     Show_In_Submit: row[8] || 'FALSE',
     Dashboard_Access: row[9] || 'FALSE',
+    Receives_SR_Alerts: row[10] || 'FALSE',
   };
 }
 
@@ -517,8 +583,26 @@ async function appendTech(techData) {
     techData.Created_At || new Date().toISOString(),
     techData.Show_In_Submit || 'FALSE',
     techData.Dashboard_Access || 'FALSE',
+    techData.Receives_SR_Alerts || 'FALSE',
   ];
   await appendRow('Techs', row);
+}
+
+// Active techs flagged Receives_SR_Alerts who have a phone (SMS is the primary
+// channel). Email is best-effort — included only if the tech row has one.
+async function getAlertRecipients() {
+  const all = await getAllTechs();
+  return all
+    .filter(t =>
+      t.Active === 'TRUE' &&
+      t.Receives_SR_Alerts === 'TRUE' &&
+      t.Phone
+    )
+    .map(t => ({
+      name: t.Full_Name,
+      phone: t.Phone,
+      email: t.Email || null,
+    }));
 }
 
 // ─── Utility ────────────────────────────────────────────────
@@ -558,6 +642,7 @@ module.exports = {
   getAllTechs,
   getTechByName,
   appendTech,
+  getAlertRecipients,
   rowToSR,
   columnToLetter,
 };

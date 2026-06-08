@@ -5,6 +5,7 @@ const { STATUSES } = require('../utils/statusFlow');
 const { sanitizeObject } = require('../utils/sanitize');
 const sheets = require('../services/sheets');
 const { fireNotifications } = require('../services/notifications');
+const { sendSMS } = require('../services/ringcentral');
 
 const router = express.Router();
 
@@ -83,6 +84,7 @@ router.post('/', async (req, res) => {
       Amount_Charged: '',
       Service_Completed: 'FALSE',
       SMS_Consent: smsConsent,
+      Escalation_Sent: 'FALSE',
     };
 
     // Write to ServiceRequests sheet
@@ -104,6 +106,31 @@ router.post('/', async (req, res) => {
       SMS_Sent: notifyResult.smsSent ? 'TRUE' : 'FALSE',
       Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
     });
+
+    // Immediate SMS to designated alert recipients (Receives_SR_Alerts=TRUE
+    // on the Techs sheet). Additive — does not replace the existing
+    // service@duranteequip.com new-SR email fired inside fireNotifications.
+    // One recipient failure must not block the others or the response.
+    try {
+      const recipients = await sheets.getAlertRecipients();
+      if (recipients.length === 0) {
+        console.warn('[NEW_SR_ALERT] No alert recipients configured');
+      } else {
+        const smsBody =
+          `Durante: NEW service request ${srId} from ${srData.Company_Name}. ` +
+          `Equipment: ${srData.Equipment_Description}. View: ${trackingUrl}`;
+        for (const r of recipients) {
+          try {
+            await sendSMS(r.phone, smsBody);
+            console.log(`[NEW_SR_ALERT] SMS sent to ${r.name} at ${r.phone}`);
+          } catch (err) {
+            console.error(`[NEW_SR_ALERT] SMS failed for ${r.name}: ${err.message}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[NEW_SR_ALERT] dispatch error:', err.message);
+    }
 
     res.status(201).json({
       srId,
