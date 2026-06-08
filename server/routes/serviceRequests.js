@@ -279,8 +279,13 @@ router.patch('/:id/status', async (req, res) => {
       }
     }
 
+    // Service_Completed flag distinguishes successful completion vs cancellation
+    // in reporting. Complete + Phone_Resolved → TRUE. Cancelled → FALSE.
     if (effectiveStatus === STATUSES.COMPLETE || effectiveStatus === STATUSES.PHONE_RESOLVED) {
       updates.Service_Completed = 'TRUE';
+    }
+    if (effectiveStatus === STATUSES.CANCELLED) {
+      updates.Service_Completed = 'FALSE';
     }
 
     // Update ServiceRequests sheet
@@ -289,29 +294,35 @@ router.patch('/:id/status', async (req, res) => {
     // Re-read the SR with updated fields for notification templates
     const updatedSr = await sheets.getServiceRequestById(req.params.id);
 
-    // Two paths from here:
-    //   1. effectiveStatus === Pending Approval — send ONLY the approval-request
-    //      email to service@; no customer/submitter notifications, no archive.
-    //   2. Anything else — existing flow (customer + submitter + maybe PDF).
+    // Three paths from here:
+    //   1. Pending Approval — send ONLY the approval-request email to service@.
+    //   2. Cancelled — skip all customer/submitter notifications; cancellations
+    //      are handled out of band by office staff over the phone.
+    //   3. Anything else — fire customer + submitter notifications.
+    // Notification dispatch is wrapped in try/catch so a transient send failure
+    // does not abort the archive step below — that was the original bug.
     let notifyResult = {
       customerNotified: false, submitterNotified: false,
       smsSent: false, emailSent: false, ratingToken: null,
     };
     if (effectiveStatus === STATUSES.PENDING_APPROVAL) {
-      // Fire-and-forget — failure here shouldn't block the status response.
       sendApprovalRequest(updatedSr, approvalToken).catch(err =>
         console.error('[Approval] Request email failed:', err.message)
       );
+    } else if (effectiveStatus === STATUSES.CANCELLED) {
+      console.log(`[Status] ${req.params.id} cancelled by ${name} — skipping notifications, archiving`);
     } else {
-      // For phone resolution, the customer note shown in the email is the
-      // resolution-notes field (no separate Tech_Notes stacking happened).
       const customerNoteForNotif = effectiveStatus === STATUSES.PHONE_RESOLVED
         ? (resolutionNotes || '').trim()
         : translatedCustomerNote;
-      notifyResult = await fireNotifications(updatedSr, effectiveStatus, {
-        customerNote: customerNoteForNotif,
-        internalNote: translatedInternalNote,
-      });
+      try {
+        notifyResult = await fireNotifications(updatedSr, effectiveStatus, {
+          customerNote: customerNoteForNotif,
+          internalNote: translatedInternalNote,
+        });
+      } catch (err) {
+        console.error(`[Status] fireNotifications threw for ${req.params.id} → ${effectiveStatus} — continuing to archive:`, err.message);
+      }
     }
 
     // Build notes with rating token if COMPLETE
@@ -324,36 +335,49 @@ router.patch('/:id/status', async (req, res) => {
     if (effectiveStatus === STATUSES.PHONE_RESOLVED) {
       historyNotes = `Resolved via the Phone by ${name} — ${resolutionNotes.trim()}`;
     }
+    if (effectiveStatus === STATUSES.COMPLETE) {
+      const tag = `Marked Complete by ${name} from dashboard`;
+      historyNotes = historyNotes ? `${historyNotes} | ${tag}` : tag;
+    }
+    if (effectiveStatus === STATUSES.CANCELLED) {
+      const tag = `Cancelled by ${name} from dashboard`;
+      historyNotes = historyNotes ? `${historyNotes} | ${tag}` : tag;
+    }
     if (notifyResult.ratingToken) {
       historyNotes = historyNotes
         ? `${historyNotes} | RATING_TOKEN:${notifyResult.ratingToken}`
         : `RATING_TOKEN:${notifyResult.ratingToken}`;
     }
 
-    // Append to StatusHistory with notification results
-    await sheets.appendStatusHistory({
-      SR_ID: req.params.id,
-      Status: effectiveStatus,
-      Notes: historyNotes,
-      Updated_By: name,
-      Role: role,
-      Timestamp: now,
-      Customer_Notified: notifyResult.customerNotified ? 'TRUE' : 'FALSE',
-      Submitter_Notified: notifyResult.submitterNotified ? 'TRUE' : 'FALSE',
-      SMS_Sent: notifyResult.smsSent ? 'TRUE' : 'FALSE',
-      Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
-    });
+    // Append to StatusHistory with notification results — wrapped so a sheet
+    // hiccup here does not abort the archive step below.
+    try {
+      await sheets.appendStatusHistory({
+        SR_ID: req.params.id,
+        Status: effectiveStatus,
+        Notes: historyNotes,
+        Updated_By: name,
+        Role: role,
+        Timestamp: now,
+        Customer_Notified: notifyResult.customerNotified ? 'TRUE' : 'FALSE',
+        Submitter_Notified: notifyResult.submitterNotified ? 'TRUE' : 'FALSE',
+        SMS_Sent: notifyResult.smsSent ? 'TRUE' : 'FALSE',
+        Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
+      });
+    } catch (err) {
+      console.error(`[Status] appendStatusHistory failed for ${req.params.id}:`, err.message);
+    }
 
-    // Archive: when status flips to Complete OR Resolved via the Phone (both are
-    // "done" states). Pending Approval does NOT archive — the approve endpoint
-    // handles that path. Phone resolutions skip the approval flow entirely.
+    // Archive on any terminal status. Pending Approval is NOT terminal — the
+    // approve-completion endpoint archives. All three terminal states funnel
+    // through sheets.archiveServiceRequest for consistency.
+    const ARCHIVE_STATUSES = new Set([STATUSES.COMPLETE, STATUSES.PHONE_RESOLVED, STATUSES.CANCELLED]);
     let archived = false;
-    if (effectiveStatus === STATUSES.COMPLETE || effectiveStatus === STATUSES.PHONE_RESOLVED) {
+    if (ARCHIVE_STATUSES.has(effectiveStatus)) {
       try {
-        await sheets.writeCompletedRequest(updatedSr);
-        await sheets.deleteServiceRequest(req.params.id);
+        await sheets.archiveServiceRequest(req.params.id, updatedSr);
         archived = true;
-        console.log(`[archive] ${req.params.id} moved to CompletedRequests`);
+        console.log(`[archive] ${req.params.id} moved to CompletedRequests (status=${effectiveStatus})`);
       } catch (err) {
         console.error(`[archive] Failed to archive ${req.params.id}:`, err.message);
       }

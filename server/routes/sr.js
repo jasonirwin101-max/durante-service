@@ -88,8 +88,7 @@ async function performApprove(sr, who) {
     Email_Sent: notifyResult.emailSent ? 'TRUE' : 'FALSE',
   });
   try {
-    await sheets.writeCompletedRequest(updated);
-    await sheets.deleteServiceRequest(sr.SR_ID);
+    await sheets.archiveServiceRequest(sr.SR_ID, updated);
     console.log(`[Approval] ${sr.SR_ID} approved & archived by ${who}`);
   } catch (err) {
     console.error(`[Approval] Archive failed for ${sr.SR_ID}:`, err.message);

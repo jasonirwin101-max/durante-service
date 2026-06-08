@@ -408,6 +408,15 @@ async function seedEscalationSentColumn() {
   console.log(`[sheets] Escalation_Sent seeded for ${values.length} existing rows (all TRUE — suppresses retroactive 15-min alerts)`);
 }
 
+// Single funnel for archiving a terminal SR (Complete, Cancelled, Resolved via
+// the Phone). Writes the latest row data to CompletedRequests and removes it
+// from active ServiceRequests. Callers should pass the full SR object already
+// re-read from the active sheet so the archived row matches what the user saw.
+async function archiveServiceRequest(srId, srData) {
+  await writeCompletedRequest(srData);
+  await deleteServiceRequest(srId);
+}
+
 async function deleteServiceRequest(srId) {
   const rowNum = await findSrRowNumber(srId);
   if (!rowNum) return false;
@@ -625,6 +634,7 @@ module.exports = {
   getAllCompletedRequests,
   getCompletedRequestById,
   writeCompletedRequest,
+  archiveServiceRequest,
   deleteServiceRequest,
   getExistingSrIds,
   appendServiceRequest,

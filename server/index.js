@@ -24,6 +24,12 @@ const { startDigestCron } = require('./cron/digest');
 
 const app = express();
 
+// Railway terminates TLS at its edge proxy and forwards through one hop.
+// Without this, express-rate-limit logs ValidationError on every request that
+// carries X-Forwarded-For and treats every client as the proxy IP. Must run
+// before any middleware that reads req.ip (rateLimit below).
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
