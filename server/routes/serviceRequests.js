@@ -1,6 +1,6 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
-const { isValidStatus, canRoleSetStatus, STATUSES } = require('../utils/statusFlow');
+const { isValidStatus, canRoleSetStatus, STATUSES, SILENT_STATUSES } = require('../utils/statusFlow');
 const sheets = require('../services/sheets');
 const { fireNotifications, sendApprovalRequest } = require('../services/notifications');
 const { processNotes } = require('../services/translate');
@@ -296,8 +296,10 @@ router.patch('/:id/status', async (req, res) => {
 
     // Three paths from here:
     //   1. Pending Approval — send ONLY the approval-request email to service@.
-    //   2. Cancelled — skip all customer/submitter notifications; cancellations
-    //      are handled out of band by office staff over the phone.
+    //   2. SILENT_STATUSES (Cancelled, Called Customer - Left Message, etc.)
+    //      — write the status + history but suppress customer/submitter
+    //      notifications. Manager can re-send manually via /api/notify if they
+    //      later decide to inform the customer.
     //   3. Anything else — fire customer + submitter notifications.
     // Notification dispatch is wrapped in try/catch so a transient send failure
     // does not abort the archive step below — that was the original bug.
@@ -309,8 +311,8 @@ router.patch('/:id/status', async (req, res) => {
       sendApprovalRequest(updatedSr, approvalToken).catch(err =>
         console.error('[Approval] Request email failed:', err.message)
       );
-    } else if (effectiveStatus === STATUSES.CANCELLED) {
-      console.log(`[Status] ${req.params.id} cancelled by ${name} — skipping notifications, archiving`);
+    } else if (SILENT_STATUSES.has(effectiveStatus)) {
+      console.log(`[Status] ${req.params.id} → ${effectiveStatus} by ${name} — silent status, skipping notifications`);
     } else {
       const customerNoteForNotif = effectiveStatus === STATUSES.PHONE_RESOLVED
         ? (resolutionNotes || '').trim()

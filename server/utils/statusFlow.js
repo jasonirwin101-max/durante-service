@@ -1,14 +1,17 @@
 const STATUSES = {
   RECEIVED: 'Received',
   ACKNOWLEDGED: 'Acknowledged',
+  CALLED_LEFT_MESSAGE: 'Called Customer - Left Message',
   SCHEDULED: 'Scheduled',
   DISPATCHED: 'Dispatched',
+  OUTSIDE_VENDOR_DISPATCHED: 'Outside Vendor Dispatched',
   ON_SITE: 'On Site',
   DIAGNOSING: 'Diagnosing',
   IN_PROGRESS: 'In Progress',
   PARTS_NEEDED: 'Parts Needed',
   PARTS_ORDERED: 'Parts Ordered',
   PARTS_ARRIVED: 'Parts Arrived',
+  ON_HOLD: 'Service is on hold',
   LEFT_SITE: 'Left Site - Will Schedule Return',
   UNIT_TO_BE_SWAPPED: 'Unit to be Swapped',
   UNIT_HAS_BEEN_SWAPPED: 'Unit Has Been Swapped',
@@ -19,6 +22,20 @@ const STATUSES = {
   CANNOT_REPAIR: 'Cannot Repair',
   CANCELLED: 'Cancelled',
 };
+
+// Status changes that must NOT send customer or submitter notifications.
+// The route writes the sheet + StatusHistory normally, then short-circuits
+// before the notify dispatch. Office can still manually re-send via
+// POST /api/notify/:srId if they later decide to inform the customer.
+//
+//   Called Customer - Left Message — internal trail only
+//   Pending Approval               — has its own approval-request email path
+//   Cancelled                      — handled out of band by phone
+const SILENT_STATUSES = new Set([
+  'Called Customer - Left Message',
+  'Pending Approval',
+  'Cancelled',
+]);
 
 const TECH_STATUSES = [
   'Dispatched',
@@ -46,4 +63,4 @@ function canRoleSetStatus(role, status) {
   return false;
 }
 
-module.exports = { STATUSES, TECH_STATUSES, ALL_STATUS_VALUES, isValidStatus, canTechSetStatus, canRoleSetStatus };
+module.exports = { STATUSES, TECH_STATUSES, ALL_STATUS_VALUES, SILENT_STATUSES, isValidStatus, canTechSetStatus, canRoleSetStatus };

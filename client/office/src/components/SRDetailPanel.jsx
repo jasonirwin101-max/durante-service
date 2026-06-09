@@ -4,18 +4,26 @@ import { useAuth } from '../context/AuthContext'
 import { formatTimestampShort, dateTimeLocalToIso } from '../utils/datetime'
 
 const ALL_STATUSES = [
-  'Received', 'Acknowledged', 'Scheduled', 'Dispatched', 'On Site',
+  'Received', 'Acknowledged', 'Called Customer - Left Message',
+  'Scheduled', 'Dispatched', 'Outside Vendor Dispatched', 'On Site',
   'Diagnosing', 'In Progress', 'Parts Needed', 'Parts Ordered', 'Parts Arrived',
+  'Service is on hold',
   'Left Site - Will Schedule Return', 'Unit to be Swapped', 'Unit Has Been Swapped',
   'Pending Approval', 'Resolved via the Phone', 'Complete',
   'Follow-Up Required', 'Cannot Repair', 'Cancelled',
 ]
 
 const STATUS_COLORS = {
-  'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500', 'Scheduled': 'bg-orange-500',
-  'Dispatched': 'bg-orange-500', 'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
+  'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500',
+  'Called Customer - Left Message': 'bg-indigo-500',
+  'Scheduled': 'bg-orange-500',
+  'Dispatched': 'bg-orange-500',
+  'Outside Vendor Dispatched': 'bg-blue-600',
+  'On Site': 'bg-green-600', 'Diagnosing': 'bg-blue-600',
   'In Progress': 'bg-green-600', 'Parts Needed': 'bg-orange-500', 'Parts Ordered': 'bg-orange-500',
-  'Parts Arrived': 'bg-green-500', 'Left Site - Will Schedule Return': 'bg-blue-500',
+  'Parts Arrived': 'bg-green-500',
+  'Service is on hold': 'bg-amber-500',
+  'Left Site - Will Schedule Return': 'bg-blue-500',
   'Unit to be Swapped': 'bg-purple-600', 'Unit Has Been Swapped': 'bg-purple-700',
   'Pending Approval': 'bg-yellow-500', 'Resolved via the Phone': 'bg-green-700',
   'Complete': 'bg-green-700',

@@ -20,6 +20,10 @@ const CUSTOMER_SMS_TEMPLATES = {
     `Hi ${name}, a Durante Equipment technician has been scheduled for your service request ${sr.SR_ID}. Appointment: ${formatETA(sr.Scheduled_Date)}. Track: ${sr.Tracking_URL}`,
   'Dispatched': (sr, name) =>
     `Hi ${name}, your Durante Equipment technician ${getTechFirstName(sr.Assigned_Tech)} is on the way to ${sr.Site_Address}. ETA: ${formatETA(sr.ETA)}. SR: ${sr.SR_ID}. Track: ${sr.Tracking_URL}`,
+  'Outside Vendor Dispatched': (sr, name) =>
+    `Hi ${name}, your service request ${sr.SR_ID} has been dispatched to an outside vendor for handling. We'll keep you updated on progress. Track: ${sr.Tracking_URL}`,
+  'Service is on hold': (sr, name) =>
+    `Hi ${name}, your service request ${sr.SR_ID} is currently on hold while we coordinate next steps. We'll be in touch shortly. Questions? Call ${formatPhoneDisplay(process.env.DURANTE_OFFICE_PHONE)}.`,
   'On Site': (sr, name) =>
     `Hi ${name}, your Durante Equipment technician has arrived at ${sr.Site_Address} for SR ${sr.SR_ID}. Track updates: ${sr.Tracking_URL}`,
   'Diagnosing': (sr, name) =>
@@ -62,6 +66,10 @@ const SUBMITTER_SMS_TEMPLATES = {
     `${sr.SR_ID} - ${sr.Company_Name} SR scheduled for ${formatETA(sr.Scheduled_Date)}.`,
   'Dispatched': (sr) =>
     `${sr.SR_ID} - Tech ${sr.Assigned_Tech || 'TBD'} dispatched to ${sr.Company_Name}. ETA: ${formatETA(sr.ETA)}.`,
+  'Outside Vendor Dispatched': (sr) =>
+    `${sr.SR_ID} - ${sr.Company_Name} dispatched to an outside vendor.`,
+  'Service is on hold': (sr) =>
+    `${sr.SR_ID} - ${sr.Company_Name} service is on hold pending next steps.`,
   'On Site': (sr) =>
     `${sr.SR_ID} - Tech ${sr.Assigned_Tech || 'TBD'} has arrived on site at ${sr.Company_Name}.`,
   'Diagnosing': (sr) =>
@@ -102,6 +110,9 @@ const STATUS_HEX = {
   'Pending Approval': '#eab308', 'Resolved via the Phone': '#15803d',
   'Complete': '#15803d', 'Follow-Up Required': '#ea580c',
   'Cannot Repair': '#dc2626', 'Cancelled': '#9ca3af',
+  'Outside Vendor Dispatched': '#2563eb',
+  'Service is on hold': '#f59e0b',
+  'Called Customer - Left Message': '#6366f1',
 };
 
 function getFirstName(fullName) {
@@ -116,6 +127,8 @@ const EMAIL_TEMPLATE_MAP = {
   'Acknowledged': 'acknowledged.html',
   'Scheduled': 'scheduled.html',
   'Dispatched': 'dispatched.html',
+  'Outside Vendor Dispatched': 'outside_vendor_dispatched.html',
+  'Service is on hold': 'service_on_hold.html',
   'On Site': 'on_site.html',
   'Diagnosing': 'diagnosing.html',
   'In Progress': 'in_progress.html',
@@ -137,6 +150,8 @@ const EMAIL_SUBJECTS = {
   'Acknowledged': (sr) => `Service Request ${sr.SR_ID} — Acknowledged`,
   'Scheduled': (sr) => `Service Request ${sr.SR_ID} — Scheduled`,
   'Dispatched': (sr) => `Service Request ${sr.SR_ID} — Tech Dispatched`,
+  'Outside Vendor Dispatched': (sr) => `Service Request ${sr.SR_ID} — Outside Vendor Dispatched`,
+  'Service is on hold': (sr) => `Service Request ${sr.SR_ID} — On Hold`,
   'On Site': (sr) => `Service Request ${sr.SR_ID} — Technician On Site`,
   'Diagnosing': (sr) => `Service Request ${sr.SR_ID} — Diagnosing`,
   'In Progress': (sr) => `Service Request ${sr.SR_ID} — In Progress`,
