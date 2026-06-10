@@ -2,6 +2,7 @@ const STATUSES = {
   RECEIVED: 'Received',
   ACKNOWLEDGED: 'Acknowledged',
   CALLED_LEFT_MESSAGE: 'Called Customer - Left Message',
+  WAITING_ON_CUSTOMER_CALLBACK: 'Waiting on Customer to call back',
   SCHEDULED: 'Scheduled',
   DISPATCHED: 'Dispatched',
   OUTSIDE_VENDOR_DISPATCHED: 'Outside Vendor Dispatched',
@@ -33,6 +34,7 @@ const STATUSES = {
 //   Cancelled                      — handled out of band by phone
 const SILENT_STATUSES = new Set([
   'Called Customer - Left Message',
+  'Waiting on Customer to call back',
   'Pending Approval',
   'Cancelled',
 ]);

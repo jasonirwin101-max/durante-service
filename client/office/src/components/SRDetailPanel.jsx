@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { formatTimestampShort, dateTimeLocalToIso } from '../utils/datetime'
 
 const ALL_STATUSES = [
-  'Received', 'Acknowledged', 'Called Customer - Left Message',
+  'Received', 'Acknowledged',
+  'Called Customer - Left Message', 'Waiting on Customer to call back',
   'Scheduled', 'Dispatched', 'Outside Vendor Dispatched', 'On Site',
   'Diagnosing', 'In Progress', 'Parts Needed', 'Parts Ordered', 'Parts Arrived',
   'Service is on hold',
@@ -16,6 +17,7 @@ const ALL_STATUSES = [
 const STATUS_COLORS = {
   'Received': 'bg-gray-500', 'Acknowledged': 'bg-blue-500',
   'Called Customer - Left Message': 'bg-indigo-500',
+  'Waiting on Customer to call back': 'bg-indigo-600',
   'Scheduled': 'bg-orange-500',
   'Dispatched': 'bg-orange-500',
   'Outside Vendor Dispatched': 'bg-blue-600',

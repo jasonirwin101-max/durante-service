@@ -8,6 +8,7 @@ const STATUS_COLORS = {
   'Received': 'bg-gray-500',
   'Acknowledged': 'bg-blue-500',
   'Called Customer - Left Message': 'bg-indigo-500',
+  'Waiting on Customer to call back': 'bg-indigo-600',
   'Scheduled': 'bg-orange-500',
   'Dispatched': 'bg-orange-500',
   'Outside Vendor Dispatched': 'bg-blue-600',
