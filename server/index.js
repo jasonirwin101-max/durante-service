@@ -18,6 +18,7 @@ const statsRoutes = require('./routes/stats');
 const porRoutes = require('./routes/por');
 const srRoutes = require('./routes/sr');
 const submitterRoutes = require('./routes/submitters');
+const adminRoutes = require('./routes/admin');
 const { startEscalationCron } = require('./cron/escalation');
 const { startEscalation15MinCron } = require('./cron/escalation15min');
 const { startDigestCron } = require('./cron/digest');
@@ -66,6 +67,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/por', porRoutes);
 app.use('/api/sr', srRoutes);
 app.use('/api/submitters', publicLimiter, submitterRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
