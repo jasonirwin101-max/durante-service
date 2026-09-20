@@ -5,10 +5,11 @@ const { runEscalationCheck } = require('../cron/escalation');
 
 const router = express.Router();
 
-// Shared-secret gate. Hard-coded here (not env-var) only because the user
-// asked for a fixed key; rotate by editing this file. Constant-time compare
-// to avoid trivial timing leaks on the secret length.
-const ADMIN_KEY = 'Durante101';
+// Shared-secret gate, read from the ADMIN_KEY env var (set a long random
+// value in Railway). No hard-coded fallback: if ADMIN_KEY is unset the
+// admin endpoints are closed entirely rather than accepting a guessable
+// default. Constant-time compare to avoid trivial timing leaks.
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -19,6 +20,10 @@ function timingSafeEqual(a, b) {
 }
 
 function requireAdminKey(req, res, next) {
+  if (!ADMIN_KEY) {
+    console.warn(`[ADMIN] ADMIN_KEY not configured — refusing ${req.path} from ${req.ip}`);
+    return res.status(503).json({ error: 'Admin endpoints not configured' });
+  }
   const provided = req.query.key || req.get('X-Admin-Key') || '';
   if (!timingSafeEqual(String(provided), ADMIN_KEY)) {
     console.warn(`[ADMIN] Unauthorized ${req.path} from ${req.ip}`);

@@ -36,8 +36,14 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Serve uploaded photos as static files
-app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
+// Serve uploaded photos as static files. nosniff stops a browser from
+// re-interpreting a file as something other than its declared type, so a
+// stored image can never be treated as an executable HTML page.
+app.use(
+  '/uploads',
+  (req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); },
+  express.static(path.resolve(__dirname, '..', 'uploads'))
+);
 
 // Rate limiting for public endpoints (60 req/min per IP)
 const publicLimiter = rateLimit({
@@ -55,13 +61,13 @@ app.get('/api/health', (req, res) => {
 
 
 // Routes
-app.use('/api/submit', submitRoutes);
+app.use('/api/submit', publicLimiter, submitRoutes);
 app.use('/api/requests', serviceRequestRoutes);
 app.use('/api/track', publicLimiter, trackRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notify', notifyRoutes);
 app.use('/api/techs', techRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/upload', publicLimiter, uploadRoutes);
 app.use('/api/rate', publicLimiter, rateRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/por', porRoutes);
