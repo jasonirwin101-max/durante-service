@@ -52,7 +52,8 @@ async function sendSMS(to, text) {
 
     const fromNumber = normalizePhone(process.env.RINGCENTRAL_FROM_NUMBER) || process.env.RINGCENTRAL_FROM_NUMBER;
     // Send-only number: append a do-not-reply notice so recipients don't text back into the void.
-    const body = `${text}\n\nAutomated message - please do not reply; this number is not monitored.`;
+    const office = fmtOfficePhone(process.env.DURANTE_OFFICE_PHONE);
+    const body = `${text}\n\nPlease do not reply to this text; this number is not monitored.${office ? ` To speak with someone, call ${office}.` : ''}`;
     console.log(`[SMS] Sending to ${normalized} from ${fromNumber}`);
 
     const p = await getPlatform();
@@ -86,6 +87,14 @@ function normalizePhone(phone) {
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
   if (digits.length > 10 && phone.startsWith('+')) return phone;
   return null;
+}
+
+// Pretty-print an office phone for message text: 9547435386 -> (954) 743-5386
+function fmtOfficePhone(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length === 10) return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+  if (d.length === 11 && d[0] === '1') return `(${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}`;
+  return phone || '';
 }
 
 module.exports = { sendSMS, normalizePhone };
