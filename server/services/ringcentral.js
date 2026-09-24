@@ -50,14 +50,16 @@ async function sendSMS(to, text) {
       return null;
     }
 
-    const fromNumber = process.env.RINGCENTRAL_FROM_NUMBER;
+    const fromNumber = normalizePhone(process.env.RINGCENTRAL_FROM_NUMBER) || process.env.RINGCENTRAL_FROM_NUMBER;
+    // Send-only number: append a do-not-reply notice so recipients don't text back into the void.
+    const body = `${text}\n\nAutomated message - please do not reply; this number is not monitored.`;
     console.log(`[SMS] Sending to ${normalized} from ${fromNumber}`);
 
     const p = await getPlatform();
     const response = await p.post('/restapi/v1.0/account/~/extension/~/sms', {
       from: { phoneNumber: fromNumber },
       to: [{ phoneNumber: normalized }],
-      text,
+      text: body,
     });
 
     const json = await response.json();
