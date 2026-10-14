@@ -155,4 +155,60 @@ async function sendEmailWithAttachment(to, subject, htmlBody, pdfBuffer, pdfName
   }
 }
 
-module.exports = { sendEmail, sendEmailWithAttachment, getAccessToken };
+/**
+ * Send a rich email with any mix of inline images and file attachments.
+ * Inline images are referenced from the HTML with <img src="cid:<contentId>">.
+ * @param {string} to - Recipient email
+ * @param {string} subject - Subject line
+ * @param {string} htmlBody - HTML content (may reference cid: inline images)
+ * @param {Array<Object>} attachments - each: { name, contentType, contentBytes(base64 string|Buffer), inline?(bool), contentId? }
+ * @returns {boolean}
+ */
+async function sendRich(to, subject, htmlBody, attachments = []) {
+  try {
+    if (!to) {
+      console.warn('Email skipped — no recipient address');
+      return false;
+    }
+
+    const client = getGraphClient();
+    const fromEmail = process.env.OUTLOOK_FROM_EMAIL;
+
+    const graphAttachments = (attachments || []).map((a) => {
+      const bytes = Buffer.isBuffer(a.contentBytes)
+        ? a.contentBytes.toString('base64')
+        : a.contentBytes;
+      const att = {
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: a.name,
+        contentType: a.contentType || 'application/octet-stream',
+        contentBytes: bytes,
+      };
+      if (a.inline) {
+        att.isInline = true;
+        att.contentId = a.contentId;
+      }
+      return att;
+    });
+
+    const message = {
+      subject,
+      body: { contentType: 'HTML', content: htmlBody },
+      toRecipients: [{ emailAddress: { address: to } }],
+    };
+    if (graphAttachments.length) message.attachments = graphAttachments;
+
+    await client.api(`/users/${fromEmail}/sendMail`).post({
+      message,
+      saveToSentItems: true,
+    });
+
+    console.log(`Rich email sent to ${to}: ${subject}`);
+    return true;
+  } catch (err) {
+    console.error(`Rich email failed to ${to}:`, err.message);
+    return false;
+  }
+}
+
+module.exports = { sendEmail, sendEmailWithAttachment, sendRich, getAccessToken };
