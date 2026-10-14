@@ -86,9 +86,10 @@ function buildSVG(d) {
   let by = 490 + (3 - Math.min(blines.length, 3)) * 4;
   for (const ln of blines.slice(0, 3)) { s += lineSVG(ln, 40, by, bodySize); by += bodyLH; }
 
-  // BIG %
-  s += `<rect x="40" y="636" width="300" height="112" fill="#ffffff"/>`;
-  s += `<text x="52" y="740" font-family="Poppins" font-weight="900" font-size="120" fill="${NUMGREEN}">${esc(d.pct)}%</text>`;
+  // BIG % (cover spans the gap under the header to the gap above PASS so the
+  // original number never ghosts through)
+  s += `<rect x="38" y="646" width="304" height="120" fill="#ffffff"/>`;
+  s += `<text x="52" y="742" font-family="Poppins" font-weight="900" font-size="120" fill="${NUMGREEN}">${esc(d.pct)}%</text>`;
 
   // PASS
   s += `<rect x="150" y="768" width="190" height="60" fill="#ffffff"/>`;
