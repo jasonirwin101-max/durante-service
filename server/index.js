@@ -74,6 +74,7 @@ app.use('/api/por', porRoutes);
 app.use('/api/sr', srRoutes);
 app.use('/api/submitters', publicLimiter, submitterRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/safety-event', publicLimiter, require('./routes/safety'));
 
 // Error handler
 app.use((err, req, res, next) => {
