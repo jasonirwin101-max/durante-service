@@ -55,8 +55,10 @@ router.post('/', async (req, res) => {
         </table></div>`;
     }
 
-    sendEmail(TO, subject, html).catch(e => console.error('[safety] email failed:', e.message));
-    res.json({ ok: true });
+    const fromSet = !!process.env.OUTLOOK_FROM_EMAIL;
+    let emailed = false;
+    try { emailed = await sendEmail(TO, subject, html); } catch (e) { console.error('[safety] email failed:', e.message); }
+    res.json({ ok: true, emailed: emailed, fromSet: fromSet });
   } catch (e) {
     console.error('[safety] error:', e.message);
     res.json({ ok: true });
