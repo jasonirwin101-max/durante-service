@@ -1,5 +1,8 @@
 const POR_BASE = 'https://api.pointofrental.com/v1/apikey';
 
+// Time limit so a POR outage fails fast instead of hanging (POR outage 11/11/2026).
+const POR_TIMEOUT_MS = Number(process.env.POR_TIMEOUT_MS || 60 * 1000);
+
 function porHeaders() {
   return {
     'X-API-Key': process.env.POR_API_KEY,
@@ -15,7 +18,7 @@ const CLOSED_STATUSES = new Set([
 ]);
 
 async function getWorkOrders({ status = 'open' } = {}) {
-  const res = await fetch(`${POR_BASE}/workorders`, { headers: porHeaders() });
+  const res = await fetch(`${POR_BASE}/workorders`, { headers: porHeaders(), signal: AbortSignal.timeout(POR_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`POR API error: ${res.status}`);
   const data = await res.json();
   const list = Array.isArray(data) ? data : [];
@@ -47,7 +50,7 @@ async function getWorkOrderById(id) {
   try {
     const direct = await fetch(
       `${POR_BASE}/workorders/${encodeURIComponent(id)}`,
-      { headers: porHeaders() }
+      { headers: porHeaders(), signal: AbortSignal.timeout(POR_TIMEOUT_MS) }
     );
     if (direct.ok) {
       const data = await direct.json();
