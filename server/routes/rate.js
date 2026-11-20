@@ -8,10 +8,8 @@ const { formatDateTimeLong } = require('../utils/datetime');
 
 const router = express.Router();
 
-const RATING_RECIPIENTS = [
-  'service@duranteequip.com',
-  'azunic@duranteequip.com',
-];
+// From the People page once connected ("Customer rating emails").
+const RATING_RECIPIENTS = require('../services/people').RATING;
 
 async function findRatingToken(srId, token) {
   const history = await sheets.getStatusHistoryBySrId(srId);

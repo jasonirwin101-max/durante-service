@@ -98,7 +98,10 @@ app.listen(PORT, () => {
   // and runs any one-time data seed tied to that column.
   require('./services/sheets').ensureTechHeaders().catch(err =>
     console.error('[startup] ensureTechHeaders failed:', err.message)
-  );
+  ).then(() =>
+    // People page: who is on the Techs tab, their role and flags, and the email lists.
+    require('./services/people').start()
+  ).catch(err => console.error('[people] start failed:', err.message));
 
   // Start cron jobs
   startEscalationCron();

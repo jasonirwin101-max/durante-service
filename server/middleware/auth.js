@@ -9,6 +9,10 @@ function authMiddleware(req, res, next) {
   const token = header.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Removed on the People page: stop now, not when the token runs out.
+    if (!require('../services/people').isActiveLogin(decoded.email)) {
+      return res.status(401).json({ error: 'Your access has been turned off.' });
+    }
     req.user = decoded; // { techId, name, role, email }
     next();
   } catch (err) {

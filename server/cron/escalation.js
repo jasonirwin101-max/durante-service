@@ -2,11 +2,8 @@ const cron = require('node-cron');
 const sheets = require('../services/sheets');
 const { sendEmail } = require('../services/outlook');
 
-const ESCALATION_RECIPIENTS = [
-  'eddie.rivera@duranteequip.com',
-  'nbalmaseda@duranteequip.com',
-  'jirwin@duranteequip.com',
-];
+// From the People page once connected ("Escalation emails").
+const ESCALATION_RECIPIENTS = require('../services/people').ESCALATION;
 
 const CLOSED_STATUSES = ['Complete', 'Cancelled', 'Cannot Repair'];
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;

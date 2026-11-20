@@ -180,10 +180,25 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Recipients: the manager always; the operator too (on completion) when
+    // they supplied a valid email that isn't the manager or the sender.
+    const fromEmail = (process.env.OUTLOOK_FROM_EMAIL || '').toLowerCase();
+    const recipients = [TO];
+    if (type !== 'start') {
+      const opEmail = String(b.operatorEmail || '').trim();
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(opEmail);
+      if (validEmail && opEmail.toLowerCase() !== TO.toLowerCase() && opEmail.toLowerCase() !== fromEmail) {
+        recipients.push(opEmail);
+      }
+    }
+
     const fromSet = !!process.env.OUTLOOK_FROM_EMAIL;
     let emailed = false;
-    try { emailed = await sendRich(TO, subject, html, attachments); } catch (e) { console.error('[safety] email failed:', e.message); }
-    res.json({ ok: true, emailed: emailed, fromSet: fromSet });
+    for (const rcp of recipients) {
+      try { const ok = await sendRich(rcp, subject, html, attachments); emailed = emailed || ok; }
+      catch (e) { console.error('[safety] email failed to', rcp + ':', e.message); }
+    }
+    res.json({ ok: true, emailed: emailed, fromSet: fromSet, recipients: recipients.length });
   } catch (e) {
     console.error('[safety] error:', e.message);
     res.json({ ok: true });

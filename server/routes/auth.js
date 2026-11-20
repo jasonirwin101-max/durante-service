@@ -1,7 +1,23 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { getAllTechs } = require('../services/sheets');
+const { getAllTechs, getRows, batchUpdateCells, columnToLetter } = require('../services/sheets');
+const people = require('../services/people');
+
+// Keep a hashed copy of the People PIN on the Techs tab, so logins (here and
+// in Driver Photos) still work if the People service is down.
+function savePinCopy(tech, pin) {
+  (async () => {
+    const rows = await getRows('Techs');
+    const header = (rows[0] || []).map((h) => String(h || '').trim());
+    const pinCol = header.indexOf('PIN');
+    const idCol = header.indexOf('Tech_ID');
+    const i = rows.findIndex((r, n) => n > 0 && String(r[idCol] || '') === String(tech.Tech_ID));
+    if (pinCol < 0 || idCol < 0 || i < 1) return;
+    if (rows[i][pinCol] && (await bcrypt.compare(pin, rows[i][pinCol]))) return;
+    await batchUpdateCells('Techs', [{ range: `${columnToLetter(pinCol)}${i + 1}`, value: await bcrypt.hash(pin, 10) }]);
+  })().catch((e) => console.error('[people] PIN copy not saved:', e.message));
+}
 
 const router = express.Router();
 
@@ -55,10 +71,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const pinMatch = await bcrypt.compare(String(pin), tech.PIN);
-    if (!pinMatch) {
+    // People page PIN first; their old Techs-tab PIN until they have one.
+    const check = await people.checkPersonPin(String(pin), tech.Email, () =>
+      tech.PIN ? bcrypt.compare(String(pin), tech.PIN) : false
+    );
+    if (!check.ok) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    if (check.viaPeople) savePinCopy(tech, String(pin));
 
     const gate = gateForApp(app, tech);
     if (!gate.allowed) {

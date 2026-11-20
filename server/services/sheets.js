@@ -614,6 +614,19 @@ async function getAlertRecipients() {
     }));
 }
 
+// Several cells in one call (People page sync). updates: [{ range: 'B5', value }]
+async function batchUpdateCells(sheetName, updates) {
+  if (!updates.length) return;
+  const sheets = getSheets();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: updates.map((u) => ({ range: `${sheetName}!${u.range}`, values: [[u.value]] })),
+    },
+  });
+}
+
 // ─── Utility ────────────────────────────────────────────────
 
 function columnToLetter(colIdx) {
@@ -655,4 +668,7 @@ module.exports = {
   getAlertRecipients,
   rowToSR,
   columnToLetter,
+  getRows,
+  appendRow,
+  batchUpdateCells,
 };
