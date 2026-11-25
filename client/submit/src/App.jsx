@@ -197,7 +197,7 @@ export default function App() {
   // ─── Confirmation Screen ───────────────────────────────
   if (result) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F4F2F2]">
         <Header />
         <div className="max-w-lg mx-auto px-4 py-8">
           <div className="bg-white rounded-xl shadow-lg p-6 text-center space-y-5">
@@ -209,7 +209,7 @@ export default function App() {
             <h2 className="text-2xl font-bold text-gray-900">Request Submitted!</h2>
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-500">Service Request Number</p>
-              <p className="text-3xl font-bold text-[#E31837] font-mono mt-1">{result.srId}</p>
+              <p className="text-3xl font-bold text-[#D42027] font-mono mt-1">{result.srId}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-2">Tracking Link</p>
@@ -217,7 +217,7 @@ export default function App() {
                 <span className="flex-1 text-sm text-gray-700 truncate font-mono">{result.trackingUrl}</span>
                 <button
                   onClick={handleCopy}
-                  className="flex-shrink-0 min-h-[40px] px-4 bg-[#E31837] text-white text-sm font-medium rounded-lg hover:bg-[#c21530] active:bg-[#a8112a] transition-colors"
+                  className="flex-shrink-0 min-h-[40px] px-4 bg-[#D42027] text-white text-sm font-medium rounded-lg hover:bg-[#A81A20] active:bg-[#8C161B] transition-colors"
                 >
                   {copied ? 'Copied!' : 'Copy Link'}
                 </button>
@@ -228,7 +228,7 @@ export default function App() {
             </p>
             <button
               onClick={handleReset}
-              className="w-full min-h-[48px] border-2 border-[#E31837] text-[#E31837] font-bold rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
+              className="w-full min-h-[48px] border-2 border-[#D42027] text-[#D42027] font-bold rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
             >
               Submit Another Request
             </button>
@@ -240,7 +240,7 @@ export default function App() {
 
   // ─── Entry Form ────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F4F2F2]">
       <Header />
       <div className="max-w-2xl mx-auto px-4 py-6">
         <h2 className="text-xl font-bold text-gray-900 mb-1">New Service Request</h2>
@@ -285,7 +285,7 @@ export default function App() {
                 multiple
                 onChange={handlePhotos}
                 disabled={photos.length >= 4}
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#E31837] file:text-white hover:file:bg-[#c21530] file:cursor-pointer file:transition-colors disabled:opacity-50 disabled:file:cursor-not-allowed"
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#D42027] file:text-white hover:file:bg-[#A81A20] file:cursor-pointer file:transition-colors disabled:opacity-50 disabled:file:cursor-not-allowed"
               />
               <p className="text-xs text-gray-500 mt-1">{photos.length} of 4 photos selected</p>
               {previews.length > 0 && (
@@ -341,7 +341,7 @@ export default function App() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full min-h-[52px] bg-[#E31837] text-white text-lg font-bold rounded-xl hover:bg-[#c21530] active:bg-[#a8112a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full min-h-[52px] bg-[#D42027] text-white text-lg font-bold rounded-xl hover:bg-[#A81A20] active:bg-[#8C161B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? (uploadProgress || 'Submitting...') : 'Submit Service Request'}
           </button>
@@ -351,12 +351,18 @@ export default function App() {
   )
 }
 
+// Durante brand (11/25/2026): black header, logo, red rule underneath.
+// Extra top room on phones so the PORTAL link doesn't sit on the logo.
 function Header() {
   return (
-    <header className="bg-[#E31837] text-white px-4 py-4 shadow-md">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-lg font-bold">Durante Equipment</h1>
-        <p className="text-xs text-white/80">Service Request Portal</p>
+    <header className="bg-[#181617] text-white border-b-4 border-[#D42027] px-4 pt-12 pb-4 sm:py-4 shadow-md">
+      <div className="max-w-2xl mx-auto flex items-center gap-4">
+        <img src="/durante-logo.png" alt="Durante Equipment" className="h-9 sm:h-11 w-auto shrink-0" />
+        <div className="h-9 w-px bg-white/20" />
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold uppercase tracking-wide leading-tight">Service Request</h1>
+          <p className="text-xs text-white/60">Old School Values. New School Speed.</p>
+        </div>
       </div>
     </header>
   )
@@ -383,7 +389,7 @@ function Field({ label, required, type = 'text', value, onChange, error, hint, p
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full min-h-[44px] px-3 border rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none transition-colors ${
+        className={`w-full min-h-[44px] px-3 border rounded-lg text-base focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none transition-colors ${
           error ? 'border-red-400 bg-red-50' : 'border-gray-300'
         }`}
       />
@@ -403,7 +409,7 @@ function SelectField({ label, required, value, onChange, error, options, placeho
         onChange={e => onChange(e.target.value)}
         required={required}
         disabled={disabled}
-        className={`w-full min-h-[44px] px-3 border rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-500 ${
+        className={`w-full min-h-[44px] px-3 border rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-500 ${
           error ? 'border-red-400 bg-red-50' : 'border-gray-300'
         }`}
       >
@@ -434,7 +440,7 @@ function SmsConsentField({ value, onChange, error }) {
               key={opt}
               className={`flex items-center gap-3 min-h-[48px] px-4 rounded-lg border-2 cursor-pointer transition-colors flex-1 ${
                 selected
-                  ? 'border-[#E31837] bg-red-50'
+                  ? 'border-[#D42027] bg-red-50'
                   : error
                     ? 'border-red-400 bg-red-50/50 hover:border-red-500'
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -446,7 +452,7 @@ function SmsConsentField({ value, onChange, error }) {
                 value={opt}
                 checked={selected}
                 onChange={() => onChange(opt)}
-                className="w-5 h-5 accent-[#E31837]"
+                className="w-5 h-5 accent-[#D42027]"
               />
               <span className="text-base font-medium text-gray-900">{opt}</span>
             </label>
@@ -469,7 +475,7 @@ function TextArea({ label, required, value, onChange, error, placeholder }) {
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         rows={4}
-        className={`w-full px-3 py-2 border rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none transition-colors ${
+        className={`w-full px-3 py-2 border rounded-lg text-base focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none resize-none transition-colors ${
           error ? 'border-red-400 bg-red-50' : 'border-gray-300'
         }`}
       />

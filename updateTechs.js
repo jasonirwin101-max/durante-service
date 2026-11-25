@@ -1,17 +1,15 @@
 /**
  * One-time script to update the Techs sheet with the current team.
- * Usage: node updateTechs.js
+ * Usage: cd server && node ../updateTechs.js
  *
- * Keeps existing rows if tech name matches (updates email/role/active).
- * Adds new rows for techs not already in the sheet.
- * Does not touch PIN column — PINs set up separately via setupPins.js.
+ * Updates existing rows if tech name matches, adds new rows otherwise.
+ * Does not touch PIN column — use setupPins.js for PINs.
  */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+const path = require('path');
+const sheets = require(path.join(__dirname, 'server', 'services', 'sheets'));
 const { google } = require('googleapis');
-
-// Force unbuffered output
-process.stdout.write('Script starting...\n');
 
 const TECHS = [
   { name: 'Eddie Rivera',         email: 'erivera@duranteequip.com',         role: 'Tech' },
@@ -26,7 +24,7 @@ const TECHS = [
   { name: 'Brello Jimenez Gomez', email: 'bjimenezgomez@duranteequip.com',   role: 'Tech' },
 ];
 
-async function getSheets() {
+function getSheetsClient() {
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -38,23 +36,27 @@ async function getSheets() {
 }
 
 async function run() {
-  const sheets = await getSheets();
-  const sid = process.env.GOOGLE_SPREADSHEET_ID;
+  process.stdout.write('Loading existing techs...\n');
+  const existing = await sheets.getAllTechs();
+  process.stdout.write(`Found ${existing.length} existing techs\n\n`);
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sid,
-    range: 'Techs!A:H',
-  });
-  const rows = res.data.values || [];
+  const sid = process.env.GOOGLE_SPREADSHEET_ID;
+  const client = getSheetsClient();
+
+  // Compute next TECH-XXX ID
+  let nextId = existing.reduce((max, t) => {
+    const n = parseInt((t.Tech_ID || '').replace('TECH-', ''), 10);
+    return n > max ? n : max;
+  }, 0) + 1;
 
   for (const tech of TECHS) {
-    const existingIdx = rows.findIndex((r, i) =>
-      i > 0 && r[1] && r[1].toLowerCase() === tech.name.toLowerCase()
-    );
+    const match = existing.find(t => t.Full_Name.toLowerCase() === tech.name.toLowerCase());
 
-    if (existingIdx > -1) {
-      const rowNum = existingIdx + 1;
-      await sheets.spreadsheets.values.batchUpdate({
+    if (match) {
+      // Find row number — rows are 1-indexed, data starts at row 2
+      const rowIdx = existing.indexOf(match);
+      const rowNum = rowIdx + 2;
+      await client.spreadsheets.values.batchUpdate({
         spreadsheetId: sid,
         requestBody: {
           valueInputOption: 'RAW',
@@ -65,33 +67,28 @@ async function run() {
           ],
         },
       });
-      console.log(`Updated: ${tech.name} (row ${rowNum})`);
+      process.stdout.write(`Updated: ${tech.name} (row ${rowNum})\n`);
     } else {
-      const maxId = rows.slice(1).reduce((max, r) => {
-        const num = parseInt((r[0] || '').replace('TECH-', ''), 10);
-        return num > max ? num : max;
-      }, 0);
-      const techId = `TECH-${String(maxId + 1).padStart(3, '0')}`;
-
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: sid,
-        range: 'Techs!A:A',
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        requestBody: {
-          values: [[techId, tech.name, tech.email, '', '', tech.role, 'TRUE', new Date().toISOString()]],
-        },
+      const techId = `TECH-${String(nextId).padStart(3, '0')}`;
+      nextId++;
+      await sheets.appendTech({
+        Tech_ID: techId,
+        Full_Name: tech.name,
+        Email: tech.email,
+        Phone: '',
+        PIN: '',
+        Role: tech.role,
+        Active: 'TRUE',
+        Created_At: new Date().toISOString(),
       });
-
-      const updated = await sheets.spreadsheets.values.get({ spreadsheetId: sid, range: 'Techs!A:H' });
-      rows.length = 0;
-      rows.push(...(updated.data.values || []));
-
-      console.log(`Added: ${tech.name} (${techId})`);
+      process.stdout.write(`Added:   ${tech.name} (${techId})\n`);
     }
   }
 
-  console.log('\nDone. PINs not modified — use setupPins.js to set PINs.');
+  process.stdout.write('\nDone. PINs not touched.\n');
 }
 
-run().catch(err => { console.error('Error:', err.message); process.exit(1); });
+run().catch(err => {
+  process.stderr.write('ERROR: ' + err.message + '\n');
+  process.exit(1);
+});
