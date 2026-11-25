@@ -10,7 +10,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F4F2F2] flex items-center justify-center">
         <div className="text-gray-500">Loading...</div>
       </div>
     )
@@ -19,7 +19,7 @@ export default function App() {
   if (!user) return <Login />
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F4F2F2]">
       <Header />
       <Routes>
         <Route path="/" element={<Dashboard />} />

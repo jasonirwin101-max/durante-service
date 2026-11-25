@@ -7,12 +7,18 @@ export default function Header() {
   const location = useLocation()
 
   return (
-    <header className="bg-[#1A1A1A] text-white shadow-md">
+    // Durante brand (11/25/2026): black bar, logo, red rule. Left padding keeps
+    // the PORTAL link (fixed top-left on every Durante app) off the logo.
+    <header className="bg-[#181617] text-white shadow-md border-b-4 border-[#D42027] pl-28">
       <div className="max-w-[1400px] mx-auto flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-6">
-          <div className="cursor-pointer" onClick={() => navigate('/')}>
-            <h1 className="text-lg font-bold text-[#E31837]">Durante Equipment</h1>
-            <p className="text-xs text-gray-400">Office Dashboard</p>
+          <div className="cursor-pointer flex items-center gap-4" onClick={() => navigate('/')}>
+            <img src="/durante-logo.png" alt="Durante Equipment" className="h-10 w-auto" />
+            <div className="h-9 w-px bg-white/20" />
+            <div>
+              <h1 className="text-base font-bold uppercase tracking-wide leading-tight">Office Dashboard</h1>
+              <p className="text-xs text-gray-400">Service Requests</p>
+            </div>
           </div>
           <nav className="flex gap-1">
             <NavBtn to="/" current={location.pathname} label="Service Requests" />
@@ -45,7 +51,7 @@ function NavBtn({ to, current, label }) {
       onClick={() => window.location.pathname !== to && (window.location.href = to)}
       className={`px-3 py-1.5 text-sm rounded transition-colors ${
         active
-          ? 'bg-[#E31837] text-white'
+          ? 'bg-[#D42027] text-white'
           : 'text-gray-300 hover:bg-gray-800'
       }`}
     >

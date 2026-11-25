@@ -16,7 +16,7 @@ export default function FilterBar({ filters, setFilters, techs, statuses }) {
       <select
         value={filters.status}
         onChange={e => update('status', e.target.value)}
-        className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+        className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none"
       >
         <option value="">All Statuses</option>
         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -25,7 +25,7 @@ export default function FilterBar({ filters, setFilters, techs, statuses }) {
       <select
         value={filters.tech}
         onChange={e => update('tech', e.target.value)}
-        className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+        className="h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none"
       >
         <option value="">All Techs</option>
         {techs.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -36,7 +36,7 @@ export default function FilterBar({ filters, setFilters, techs, statuses }) {
         value={filters.company}
         onChange={e => update('company', e.target.value)}
         placeholder="Company..."
-        className="h-8 w-36 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+        className="h-8 w-36 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
       />
 
       <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -45,14 +45,14 @@ export default function FilterBar({ filters, setFilters, techs, statuses }) {
           type="date"
           value={filters.dateFrom}
           onChange={e => update('dateFrom', e.target.value)}
-          className="h-8 px-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+          className="h-8 px-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
         />
         <span>To</span>
         <input
           type="date"
           value={filters.dateTo}
           onChange={e => update('dateTo', e.target.value)}
-          className="h-8 px-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+          className="h-8 px-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
         />
       </div>
 

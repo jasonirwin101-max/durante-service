@@ -341,9 +341,9 @@ function KPICards({ stats }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
       {cards.map(c => (
-        <div key={c.label} className="bg-[#1a2035] rounded-lg p-5 shadow-sm">
+        <div key={c.label} className="bg-[#181617] rounded-lg p-5 shadow-sm">
           <div className="text-white text-sm font-medium uppercase tracking-wide opacity-80">{c.label}</div>
-          <div className="text-[#E31837] text-4xl font-bold mt-2 leading-none">
+          <div className="text-[#D42027] text-4xl font-bold mt-2 leading-none">
             {c.value === undefined || c.value === null ? '—' : c.value}
           </div>
           <div className="text-gray-400 text-xs mt-2">{c.sub}</div>
@@ -359,7 +359,7 @@ function TabBtn({ active, onClick, children }) {
       onClick={onClick}
       className={`px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
         active
-          ? 'border-[#E31837] text-[#E31837]'
+          ? 'border-[#D42027] text-[#D42027]'
           : 'border-transparent text-gray-500 hover:text-gray-700'
       }`}
     >
@@ -435,7 +435,7 @@ function ActiveView({
                                 ⏳ Awaiting Approval
                               </span>
                             ) : isReceived ? (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-white text-[#E31837]">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-white text-[#D42027]">
                                 ACTION NEEDED
                               </span>
                             ) : (
@@ -499,7 +499,7 @@ function CompletedView({
           value={completedFilters.company}
           onChange={e => setCompletedFilters(f => ({ ...f, company: e.target.value }))}
           placeholder="Search company"
-          className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#E31837] outline-none"
+          className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D42027] outline-none"
         />
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <span>Completed:</span>
@@ -529,7 +529,7 @@ function CompletedView({
         <button
           onClick={exportCompletedCSV}
           disabled={filtered.length === 0}
-          className="h-9 px-4 text-sm font-medium bg-[#1A1A1A] text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="h-9 px-4 text-sm font-medium bg-[#181617] text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Export CSV ({filtered.length})
         </button>
@@ -672,12 +672,12 @@ function PorWorkOrdersView({ requests = [], onLink }) {
             onChange={e => setWoInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleLookup() }}
             placeholder="Enter Work Order Number..."
-            className="flex-1 h-9 px-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#E31837] outline-none"
+            className="flex-1 h-9 px-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#D42027] outline-none"
           />
           <button
             onClick={handleLookup}
             disabled={searching || !woInput.trim()}
-            className="h-9 px-4 text-sm font-medium text-white bg-[#E31837] rounded-lg hover:bg-[#c21530] disabled:opacity-50"
+            className="h-9 px-4 text-sm font-medium text-white bg-[#D42027] rounded-lg hover:bg-[#A81A20] disabled:opacity-50"
           >
             {searching ? 'Searching…' : '🔍 Look Up'}
           </button>
@@ -735,7 +735,7 @@ function PorWorkOrdersView({ requests = [], onLink }) {
               <select
                 value={selectedSrId}
                 onChange={e => setSelectedSrId(e.target.value)}
-                className="w-full h-9 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+                className="w-full h-9 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none"
               >
                 <option value="">Choose an active SR…</option>
                 {requests.map(sr => (
@@ -787,7 +787,7 @@ function SortTh({ col, label, sortCol, sortDir, onSort }) {
     >
       {label}
       {active && (
-        <span className="ml-1 text-[#E31837]">{sortDir === 'asc' ? '▲' : '▼'}</span>
+        <span className="ml-1 text-[#D42027]">{sortDir === 'asc' ? '▲' : '▼'}</span>
       )}
     </th>
   )

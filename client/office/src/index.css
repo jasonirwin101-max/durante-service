@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @keyframes received-flash {
-  0%, 100% { background-color: #E31837; color: #FFFFFF; }
-  50% { background-color: #ffcccc; color: #1A1A1A; }
+  0%, 100% { background-color: #D42027; color: #FFFFFF; }
+  50% { background-color: #ffcccc; color: #181617; }
 }
 
 .row-received-flash {

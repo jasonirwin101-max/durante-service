@@ -61,7 +61,7 @@ export default function AddTech() {
             value={fullName}
             onChange={e => setFullName(e.target.value)}
             placeholder="e.g. Eddie Rivera"
-            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
           />
         </div>
         <div>
@@ -71,7 +71,7 @@ export default function AddTech() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="e.g. erivera@duranteequip.com"
-            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
           />
         </div>
         <div>
@@ -81,7 +81,7 @@ export default function AddTech() {
             value={phone}
             onChange={e => setPhone(e.target.value)}
             placeholder="e.g. 954-555-1234"
-            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
           />
         </div>
         <div>
@@ -89,7 +89,7 @@ export default function AddTech() {
           <select
             value={role}
             onChange={e => setRole(e.target.value)}
-            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+            className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
           >
             <option value="Tech">Tech</option>
             <option value="Manager">Manager</option>
@@ -100,7 +100,7 @@ export default function AddTech() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-10 bg-[#E31837] text-white font-bold rounded-lg hover:bg-[#c21530] disabled:opacity-50 transition-colors"
+          className="w-full h-10 bg-[#D42027] text-white font-bold rounded-lg hover:bg-[#A81A20] disabled:opacity-50 transition-colors"
         >
           {loading ? 'Adding...' : 'Add Tech'}
         </button>

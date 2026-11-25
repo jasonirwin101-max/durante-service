@@ -50,11 +50,11 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-[#F4F2F2] flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[#E31837]">Durante Equipment</h1>
-          <p className="text-sm text-gray-500 mt-1">Office Dashboard</p>
+        <div className="text-center mb-6 bg-[#181617] rounded-xl border-b-4 border-[#D42027] px-6 py-6 shadow-lg">
+          <img src="/durante-logo.png" alt="Durante Equipment" className="h-12 w-auto mx-auto" />
+          <p className="text-sm font-bold uppercase tracking-wider text-white mt-3">Office Dashboard</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-4">
           <h2 className="text-lg font-bold text-gray-900 text-center">Sign In</h2>
@@ -66,7 +66,7 @@ export default function Login() {
             <select
               value={selectedName}
               onChange={e => setSelectedName(e.target.value)}
-              className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+              className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
             >
               <option value="">Select your name</option>
               {techs.map(t => (
@@ -83,13 +83,13 @@ export default function Login() {
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
               placeholder="4-digit PIN"
-              className="w-full h-10 px-3 border border-gray-300 rounded-lg text-center text-lg tracking-[0.4em] font-mono focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+              className="w-full h-10 px-3 border border-gray-300 rounded-lg text-center text-lg tracking-[0.4em] font-mono focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !selectedName || pin.length < 4}
-            className="w-full h-10 bg-[#E31837] text-white font-bold rounded-lg hover:bg-[#c21530] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full h-10 bg-[#D42027] text-white font-bold rounded-lg hover:bg-[#A81A20] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>

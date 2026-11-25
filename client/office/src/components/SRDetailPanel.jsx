@@ -303,7 +303,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block rounded-lg border border-gray-200 overflow-hidden hover:border-[#E31837] transition-colors"
+                    className="block rounded-lg border border-gray-200 overflow-hidden hover:border-[#D42027] transition-colors"
                   >
                     <img
                       src={url}
@@ -325,7 +325,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
               <select
                 value={assignedTech}
                 onChange={e => setAssignedTech(e.target.value)}
-                className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+                className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none"
               >
                 <option value="">Unassigned</option>
                 {techs.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -334,7 +334,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                 <button
                   onClick={handleAssignTech}
                   disabled={techSaving}
-                  className="h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                  className="h-8 px-3 text-sm font-medium text-white bg-[#D42027] rounded hover:bg-[#A81A20] disabled:opacity-50"
                 >
                   {techSaving ? '...' : 'Save'}
                 </button>
@@ -363,7 +363,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
             <select
               value={newStatus}
               onChange={e => setNewStatus(e.target.value)}
-              className="w-full h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none"
+              className="w-full h-8 px-2 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none"
             >
               <option value="">Select new status...</option>
               {ALL_STATUSES.filter(s => s !== sr.Current_Status).map(s => (
@@ -377,7 +377,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                   value={statusNotes}
                   onChange={e => setStatusNotes(e.target.value)}
                   placeholder="Notes (optional)"
-                  className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                  className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
                 />
                 {(newStatus === 'Dispatched' || newStatus === 'Parts Ordered') && (
                   <input
@@ -385,7 +385,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                     value={eta}
                     onChange={e => setEta(e.target.value)}
                     placeholder="ETA (e.g., Between 2-4 PM)"
-                    className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                    className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
                   />
                 )}
                 {newStatus === 'Scheduled' && (
@@ -393,7 +393,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                     type="datetime-local"
                     value={scheduledDate}
                     onChange={e => setScheduledDate(e.target.value)}
-                    className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                    className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
                   />
                 )}
                 {newStatus === 'Unit to be Swapped' && (
@@ -405,7 +405,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                       type="datetime-local"
                       value={eta}
                       onChange={e => setEta(e.target.value)}
-                      className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                      className="w-full h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
                       required
                     />
                     {!eta && <p className="text-xs text-red-500 mt-1">Date and time required for unit swap</p>}
@@ -421,7 +421,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                       onChange={e => setResolutionNotes(e.target.value)}
                       rows={3}
                       placeholder="Briefly describe how you resolved this over the phone (e.g. 'Walked customer through GPS reset')"
-                      className="w-full px-2 py-1.5 text-sm border border-green-300 rounded bg-white focus:ring-1 focus:ring-[#E31837] outline-none resize-none"
+                      className="w-full px-2 py-1.5 text-sm border border-green-300 rounded bg-white focus:ring-1 focus:ring-[#D42027] outline-none resize-none"
                       autoFocus
                     />
                   </div>
@@ -433,7 +433,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                     (newStatus === 'Unit to be Swapped' && !eta) ||
                     (newStatus === 'Resolved via the Phone' && !resolutionNotes.trim())
                   }
-                  className="w-full h-8 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                  className="w-full h-8 text-sm font-medium text-white bg-[#D42027] rounded hover:bg-[#A81A20] disabled:opacity-50"
                 >
                   {statusUpdating
                     ? 'Updating...'
@@ -455,13 +455,13 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                 value={internalNotes}
                 onChange={e => setInternalNotes(e.target.value)}
                 rows={3}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none resize-none"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none resize-none"
               />
               {internalNotes !== (sr.Internal_Notes || '') && (
                 <button
                   onClick={handleSaveNotes}
                   disabled={notesSaving}
-                  className="mt-1 h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                  className="mt-1 h-8 px-3 text-sm font-medium text-white bg-[#D42027] rounded hover:bg-[#A81A20] disabled:opacity-50"
                 >
                   {notesSaving ? 'Saving...' : 'Save Notes'}
                 </button>
@@ -501,7 +501,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
               <button
                 onClick={handleReject}
                 disabled={approving || rejecting}
-                className="flex-1 h-10 text-sm font-bold text-white bg-[#CC0000] rounded-lg hover:bg-[#A30000] disabled:opacity-50"
+                className="flex-1 h-10 text-sm font-bold text-white bg-[#D42027] rounded-lg hover:bg-[#A81A20] disabled:opacity-50"
               >
                 {rejecting ? 'Rejecting...' : '✗ Reject — Send Back to Tech'}
               </button>
@@ -514,7 +514,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
           <button
             onClick={handleResend}
             disabled={resending}
-            className="w-full h-9 text-sm font-medium border-2 border-[#E31837] text-[#E31837] rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+            className="w-full h-9 text-sm font-medium border-2 border-[#D42027] text-[#D42027] rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
           >
             {resending ? 'Sending...' : 'Re-send Notifications'}
           </button>
@@ -545,7 +545,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                 onKeyDown={e => { if (e.key === 'Enter') handleReopen() }}
                 placeholder="Password"
                 autoFocus
-                className="w-full h-9 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+                className="w-full h-9 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
               />
               {reopenError && (
                 <p className="text-sm text-red-600">{reopenError}</p>
@@ -560,7 +560,7 @@ export default function SRDetailPanel({ srId, techs, onUpdate, onClose, readOnly
                 <button
                   onClick={handleReopen}
                   disabled={reopening}
-                  className="flex-1 h-9 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+                  className="flex-1 h-9 text-sm font-medium text-white bg-[#D42027] rounded hover:bg-[#A81A20] disabled:opacity-50"
                 >
                   {reopening ? 'Reopening...' : 'Reopen'}
                 </button>
@@ -661,7 +661,7 @@ function Row({ label, value, link }) {
     <div className="flex gap-2 text-sm">
       <span className="text-gray-500 w-28 flex-shrink-0">{label}</span>
       {link ? (
-        <a href={link} className="text-[#E31837] hover:underline truncate">{value}</a>
+        <a href={link} className="text-[#D42027] hover:underline truncate">{value}</a>
       ) : (
         <span className="text-gray-900 truncate">{value}</span>
       )}
@@ -838,12 +838,12 @@ function PorWorkOrderSection({ srId, linkedWoNumber, canEdit, onChange, onError,
           onChange={e => setWoInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleLookup() }}
           placeholder="Enter Work Order Number"
-          className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#E31837] outline-none"
+          className="flex-1 h-8 px-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-[#D42027] outline-none"
         />
         <button
           onClick={handleLookup}
           disabled={lookupLoading || !woInput.trim()}
-          className="h-8 px-3 text-sm font-medium text-white bg-[#E31837] rounded hover:bg-[#c21530] disabled:opacity-50"
+          className="h-8 px-3 text-sm font-medium text-white bg-[#D42027] rounded hover:bg-[#A81A20] disabled:opacity-50"
         >
           {lookupLoading ? '...' : '🔍 Look Up'}
         </button>
