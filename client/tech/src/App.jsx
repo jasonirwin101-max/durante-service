@@ -10,7 +10,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F4F2F2] flex items-center justify-center">
         <div className="text-gray-500 text-lg">Loading...</div>
       </div>
     )
@@ -21,7 +21,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-[#F4F2F2]">
       <Header />
       <main className="pb-6">
         <Routes>

@@ -22,7 +22,7 @@ const STATUS_BTN = {
   'In Progress': { color: 'bg-green-600 active:bg-green-700' },
   'Parts Needed': { color: 'bg-orange-500 active:bg-orange-600' },
   'Left Site - Will Schedule Return': { color: 'bg-[#2196F3] active:bg-[#1976D2]' },
-  'Complete': { color: 'bg-[#E31837] active:bg-[#c21530]' },
+  'Complete': { color: 'bg-[#D42027] active:bg-[#A81A20]' },
 }
 
 export default function SRDetail() {
@@ -175,11 +175,11 @@ export default function SRDetail() {
               onChange={e => setUnitNumber(e.target.value)}
               placeholder={`${L.enterUnit[0]} / ${L.enterUnit[1]}`}
               disabled={isComplete}
-              className="flex-1 min-h-[48px] px-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none disabled:bg-gray-100"
+              className="flex-1 min-h-[48px] px-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none disabled:bg-gray-100"
             />
             {!isComplete && unitNumber !== (sr.Unit_Number || '') && (
               <button onClick={saveUnitNumber} disabled={unitSaving}
-                className="min-h-[48px] px-4 bg-[#E31837] text-white text-sm font-medium rounded-lg active:bg-[#c21530] disabled:opacity-50">
+                className="min-h-[48px] px-4 bg-[#D42027] text-white text-sm font-medium rounded-lg active:bg-[#A81A20] disabled:opacity-50">
                 {unitSaving ? '...' : `${L.save[0]} / ${L.save[1]}`}
               </button>
             )}
@@ -203,7 +203,7 @@ export default function SRDetail() {
               onChange={e => setCustomerNotes(e.target.value)}
               placeholder="Message to include in customer notification / Mensaje para incluir en notificación"
               rows={3}
-              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none resize-none"
             />
           </div>
 
@@ -218,7 +218,7 @@ export default function SRDetail() {
               onChange={e => setInternalNotes(e.target.value)}
               placeholder="Notes for office use only / Notas solo para uso interno"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none resize-none"
             />
           </div>
 
@@ -227,7 +227,7 @@ export default function SRDetail() {
             value={eta}
             onChange={e => setEta(e.target.value)}
             placeholder={`${L.etaPlaceholder[0]} / ${L.etaPlaceholder[1]}`}
-            className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+            className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
           />
         </div>
       )}
@@ -265,7 +265,7 @@ export default function SRDetail() {
           <button
             onClick={() => handleStatusUpdate('Complete')}
             disabled={updating}
-            className="w-full min-h-[56px] rounded-xl bg-[#E31837] text-white font-bold active:bg-[#c21530] disabled:opacity-50 transition-colors flex flex-col items-center justify-center"
+            className="w-full min-h-[56px] rounded-xl bg-[#D42027] text-white font-bold active:bg-[#A81A20] disabled:opacity-50 transition-colors flex flex-col items-center justify-center"
           >
             <span className="text-lg">{L.markComplete[0]}</span>
             <span className="text-sm opacity-75">{L.markComplete[1]}</span>
@@ -298,7 +298,7 @@ export default function SRDetail() {
                 onChange={e => setCompleteCustomerNotes(e.target.value)}
                 placeholder="Summary of work completed / Resumen del trabajo realizado"
                 rows={3}
-                className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+                className="w-full px-3 py-2 border border-blue-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none resize-none"
                 autoFocus
               />
             </div>
@@ -313,7 +313,7 @@ export default function SRDetail() {
                 onChange={e => setCompleteInternalNotes(e.target.value)}
                 placeholder="Notes for office use only / Notas solo para uso interno"
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none resize-none"
               />
             </div>
 
@@ -328,7 +328,7 @@ export default function SRDetail() {
               <button
                 onClick={handleComplete}
                 disabled={updating || !completeCustomerNotes.trim()}
-                className="flex-1 min-h-[52px] rounded-xl bg-[#E31837] text-white font-bold text-base active:bg-[#c21530] disabled:opacity-50 transition-colors"
+                className="flex-1 min-h-[52px] rounded-xl bg-[#D42027] text-white font-bold text-base active:bg-[#A81A20] disabled:opacity-50 transition-colors"
               >
                 <div>{updating ? L.completing[0] : L.confirmComplete[0]}</div>
                 <div className="text-xs font-normal opacity-75">{updating ? L.completing[1] : L.confirmComplete[1]}</div>
@@ -369,7 +369,7 @@ function BiRow({ en, es, value, link }) {
     <div>
       <p className="text-xs font-medium text-gray-500">{en} <span className="opacity-70">/ {es}</span></p>
       {link ? (
-        <a href={link} className="text-base text-[#E31837] font-medium">{value}</a>
+        <a href={link} className="text-base text-[#D42027] font-medium">{value}</a>
       ) : (
         <p className="text-base text-gray-900">{value}</p>
       )}

@@ -59,10 +59,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <div className="bg-[#E31837] text-white px-6 pt-12 pb-8 text-center">
-        <h1 className="text-2xl font-bold">Durante Equipment</h1>
-        <p className="text-sm text-white/80 mt-1">{L.techPortal[0]} <span className="opacity-70">/ {L.techPortal[1]}</span></p>
+    <div className="min-h-screen bg-[#F4F2F2] flex flex-col">
+      <div className="bg-[#181617] text-white px-6 pt-14 pb-7 text-center border-b-4 border-[#D42027]">
+        <img src="/durante-logo.png" alt="Durante Equipment" className="h-12 sm:h-14 w-auto mx-auto" />
+        <p className="text-sm font-bold uppercase tracking-wider mt-3">{L.techPortal[0]} <span className="font-normal normal-case tracking-normal text-white/60">/ {L.techPortal[1]}</span></p>
       </div>
 
       <div className="flex-1 flex items-start justify-center px-4 pt-8">
@@ -83,7 +83,7 @@ export default function Login() {
               value={selectedName}
               onChange={e => setSelectedName(e.target.value)}
               disabled={fetchingTechs}
-              className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+              className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-base bg-white focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
             >
               <option value="">
                 {fetchingTechs ? `${L.loading[0]} / ${L.loading[1]}` : `${L.selectName[0]} / ${L.selectName[1]}`}
@@ -106,14 +106,14 @@ export default function Login() {
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
               placeholder={`${L.pinPlaceholder[0]} / ${L.pinPlaceholder[1]}`}
-              className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-center text-2xl tracking-[0.5em] font-mono focus:ring-2 focus:ring-[#E31837] focus:border-[#E31837] outline-none"
+              className="w-full min-h-[48px] px-3 border border-gray-300 rounded-lg text-center text-2xl tracking-[0.5em] font-mono focus:ring-2 focus:ring-[#D42027] focus:border-[#D42027] outline-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading || !selectedName || pin.length < 4}
-            className="w-full min-h-[52px] bg-[#E31837] text-white text-lg font-bold rounded-lg hover:bg-[#c21530] active:bg-[#a8112a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full min-h-[52px] bg-[#D42027] text-white text-lg font-bold rounded-lg hover:bg-[#A81A20] active:bg-[#8C161B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? `${L.signingIn[0]} / ${L.signingIn[1]}` : `${L.signIn[0]} / ${L.signIn[1]}`}
           </button>

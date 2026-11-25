@@ -9,9 +9,11 @@ export default function Header() {
   const isDetail = location.pathname.startsWith('/sr/')
 
   return (
-    <header className="bg-[#E31837] text-white sticky top-0 z-50 shadow-md">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
+    // Durante brand (11/25/2026): black bar, logo, red rule. Left padding keeps
+    // the PORTAL link (fixed top-left on every Durante app) off the logo.
+    <header className="bg-[#181617] text-white sticky top-0 z-50 shadow-md border-b-4 border-[#D42027]">
+      <div className="flex items-center justify-between pl-[7.25rem] pr-2 sm:pr-4 py-2">
+        <div className="flex items-center gap-3 min-w-0">
           {isDetail && (
             <button
               onClick={() => navigate('/')}
@@ -23,9 +25,11 @@ export default function Header() {
               </svg>
             </button>
           )}
-          <div>
-            <h1 className="text-lg font-bold leading-tight">Durante Equipment</h1>
-            <p className="text-xs text-white/80">{L.techPortal[0]} <span className="opacity-70">/ {L.techPortal[1]}</span></p>
+          {!isDetail && <img src="/favicon.png" alt="Durante Equipment" className="h-9 w-9 rounded sm:hidden" />}
+          <img src="/durante-logo.png" alt="Durante Equipment" className="hidden sm:block h-10 w-auto" />
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base font-bold uppercase tracking-wide leading-tight whitespace-nowrap">{L.techPortal[0]}</h1>
+            <p className="text-xs text-white/60 truncate">{L.techPortal[1]}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -34,7 +38,7 @@ export default function Header() {
             onClick={logout}
             className="min-h-[48px] px-3 rounded-lg text-sm font-medium hover:bg-white/20 active:bg-white/30 transition-colors"
           >
-            {L.logout[0]} <span className="text-xs opacity-70">/ {L.logout[1]}</span>
+            {L.logout[0]} <span className="hidden sm:inline text-xs opacity-70">/ {L.logout[1]}</span>
           </button>
         </div>
       </div>
